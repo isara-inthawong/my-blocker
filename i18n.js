@@ -13,7 +13,8 @@ async function loadTranslations(lang) {
 }
 
 async function localizePage() {
-  chrome.storage.local.get(["preferred_lang"], async (data) => {
+  try {
+    const data = await chrome.storage.local.get(["preferred_lang"]);
     let lang = data.preferred_lang;
     if (!lang) {
       lang = chrome.i18n.getUILanguage().startsWith("th") ? "th" : "en";
@@ -35,35 +36,37 @@ async function localizePage() {
       }
     });
 
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-placeholder");
+      if (messages[key]) {
+        el.placeholder = messages[key].message;
+      }
+    });
+
     const langSelect = document.getElementById("langSelect");
     if (langSelect) {
       langSelect.value = lang;
     }
-  });
+  } catch (e) {
+    console.error("Localization error:", e);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   localizePage();
 });
 
-// i18n.js
 async function getMsg(key, fallback) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(["preferred_lang"], async (data) => {
-      let lang =
-        data.preferred_lang ||
-        (chrome.i18n.getUILanguage().startsWith("th") ? "th" : "en");
-      try {
-        const response = await fetch(
-          chrome.runtime.getURL(`_locales/${lang}/messages.json`)
-        );
-        const messages = await response.json();
-        if (messages[key] && messages[key].message) {
-          resolve(messages[key].message);
-          return;
-        }
-      } catch (e) {}
-      resolve(fallback);
-    });
-  });
+  try {
+    const data = await chrome.storage.local.get(["preferred_lang"]);
+    let lang =
+      data.preferred_lang ||
+      (chrome.i18n.getUILanguage().startsWith("th") ? "th" : "en");
+
+    const messages = await loadTranslations(lang);
+    if (messages[key] && messages[key].message) {
+      return messages[key].message;
+    }
+  } catch (e) {}
+  return fallback;
 }

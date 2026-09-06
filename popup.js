@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", async () => {
-  // แปลภาษาอัตโนมัติสำหรับทุก Element ที่มี data-i18n, data-i18n-title และ data-i18n-placeholder
   if (typeof getMsg === "function") {
     const elements = document.querySelectorAll("[data-i18n]");
     for (const el of elements) {
@@ -26,6 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.url) return;
 
   chrome.tabs.sendMessage(tab.id, { action: "stop_picker" }).catch(() => {});
 
@@ -42,18 +42,79 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let editingIndex = null;
 
-  // ฟังเหตุการณ์เมื่อข้อมูลใน storage เปลี่ยนแปลง ให้โหลดรายการใน Popup ใหม่ทันที
+  // จัดโครงสร้างให้ input และปุ่มอยู่ชิดกันแบบ Flexbox เพื่อประหยัดพื้นที่
+  const inputParent = customInput.parentElement;
+  if (inputParent && !inputParent.classList.contains("input-group")) {
+    inputParent.style.display = "flex";
+    inputParent.style.alignItems = "center";
+    inputParent.style.gap = "6px";
+    customInput.style.flex = "1";
+    customInput.style.minWidth = "0";
+  }
+
+  // สร้างปุ่มยกเลิกการแก้ไข
+  const cancelEditBtn = document.createElement("button");
+  cancelEditBtn.innerHTML = "✖️";
+  cancelEditBtn.className = "add-icon-btn";
+  cancelEditBtn.style.display = "none";
+  cancelEditBtn.style.backgroundColor = "#e4e6eb";
+  addCustomBtn.parentNode.insertBefore(cancelEditBtn, addCustomBtn.nextSibling);
+
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local" && changes[hostname]) {
       loadList();
     }
   });
 
+  function cleanItemsData(rawItems) {
+    if (!Array.isArray(rawItems)) return [];
+
+    let items = rawItems
+      .map((item) => {
+        let sel = typeof item === "string" ? item : item.selector || "";
+        return {
+          selector: sel.trim(),
+          timestamp: item.timestamp || Date.now()
+        };
+      })
+      .filter((item) => item.selector !== "");
+
+    let uniqueMap = new Map();
+    items.forEach((item) => {
+      if (!uniqueMap.has(item.selector)) {
+        uniqueMap.set(item.selector, item);
+      } else {
+        if (
+          (item.timestamp || 0) > (uniqueMap.get(item.selector).timestamp || 0)
+        ) {
+          uniqueMap.set(item.selector, item);
+        }
+      }
+    });
+
+    let cleanedArray = Array.from(uniqueMap.values());
+    cleanedArray.sort((a, b) => b.timestamp - a.timestamp);
+
+    return cleanedArray;
+  }
+
   async function loadList() {
     chrome.storage.local.get([hostname], async (result) => {
-      const items = result[hostname] || [];
+      let rawItems = result[hostname] || [];
+      let cleanItems = cleanItemsData(rawItems);
+
+      if (JSON.stringify(cleanItems) !== JSON.stringify(rawItems)) {
+        chrome.storage.local.set({ [hostname]: cleanItems });
+        return;
+      }
+
+      let itemsWithIndex = cleanItems.map((item, originalIndex) => ({
+        ...item,
+        originalIndex
+      }));
+
       listEl.innerHTML = "";
-      if (items.length === 0) {
+      if (itemsWithIndex.length === 0) {
         const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
         listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
       } else {
@@ -63,26 +124,40 @@ document.addEventListener("DOMContentLoaded", async () => {
           "Delete this item"
         );
 
-        items.forEach((item, index) => {
+        itemsWithIndex.forEach((itemObj, displayIndex) => {
+          const sel = itemObj.selector;
+          const originalIndex = itemObj.originalIndex;
+
           const li = document.createElement("li");
           const span = document.createElement("span");
-          span.textContent = item;
-          span.title = item;
+
+          // แสดงหมายเลขลำดับนำหน้า Selector (เช่น 1., 2.)
+          const itemNumber = displayIndex + 1;
+          span.textContent = `${itemNumber}. ${sel}`;
+          span.title = sel;
 
           const startEditing = async () => {
-            customInput.value = item;
-            editingIndex = index;
+            customInput.value = sel;
+            editingIndex = originalIndex;
             addCustomBtn.innerHTML = "💾";
             addCustomBtn.title = await getMsg(
               "updateBtnTooltip",
               "Update this item"
             );
             addCustomBtn.className = "add-icon-btn warning";
+            cancelEditBtn.style.display = "inline-flex";
+            cancelEditBtn.title = await getMsg(
+              "cancelBtnTooltip",
+              "Cancel editing"
+            );
+
             const editingText = await getMsg(
               "editingIndexText",
-              "💡 Editing item #"
+              "💡 Editing item $1"
             );
-            editHint.textContent = editingText.replace("$1", index + 1);
+            editHint.textContent = (
+              editingText || "💡 Editing item $1"
+            ).replace("$1", displayIndex + 1);
             customInput.focus();
           };
 
@@ -106,17 +181,24 @@ document.addEventListener("DOMContentLoaded", async () => {
           delBtn.className = "icon-btn btn-del";
           delBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            items.splice(index, 1);
-            chrome.storage.local.set({ [hostname]: items }, () => {
-              resetEditingState();
-              loadList();
-              chrome.tabs.reload(tab.id);
+            chrome.storage.local.get([hostname], (currentRes) => {
+              let currentItems = cleanItemsData(currentRes[hostname] || []);
+              currentItems.splice(originalIndex, 1);
+
+              if (currentItems.length === 0) {
+                chrome.storage.local.remove(hostname, () => {
+                  resetEditingState();
+                });
+              } else {
+                chrome.storage.local.set({ [hostname]: currentItems }, () => {
+                  resetEditingState();
+                });
+              }
             });
           });
 
           btnGroup.appendChild(editBtn);
           btnGroup.appendChild(delBtn);
-
           li.appendChild(span);
           li.appendChild(btnGroup);
           listEl.appendChild(li);
@@ -131,53 +213,89 @@ document.addEventListener("DOMContentLoaded", async () => {
     addCustomBtn.innerHTML = "➕";
     addCustomBtn.title = await getMsg("addBtnTooltip", "Add Custom Selector");
     addCustomBtn.className = "add-icon-btn";
+    cancelEditBtn.style.display = "none";
     editHint.textContent = await getMsg(
       "editHintText",
       "💡 Click ✏️ on items below to edit"
     );
   }
 
+  cancelEditBtn.addEventListener("click", () => {
+    resetEditingState();
+  });
+
   loadList();
 
-  pickBtn.addEventListener("click", () => {
-    chrome.tabs.sendMessage(tab.id, { action: "start_picker" }, () => {
-      window.close();
+  if (pickBtn) {
+    pickBtn.addEventListener("click", () => {
+      chrome.tabs.sendMessage(tab.id, { action: "start_picker" }, () => {
+        window.close();
+      });
     });
-  });
+  }
 
-  openTabBtn.addEventListener("click", () => {
-    chrome.runtime.openOptionsPage();
-  });
+  if (openTabBtn) {
+    openTabBtn.addEventListener("click", () => {
+      if (chrome.runtime.openOptionsPage) {
+        chrome.runtime.openOptionsPage();
+      } else {
+        window.open(chrome.runtime.getURL("options.html"));
+      }
+    });
+  }
 
-  addCustomBtn.addEventListener("click", () => {
+  const handleSaveOrAdd = () => {
     const val = customInput.value.trim();
     if (!val) return;
 
     chrome.storage.local.get([hostname], (result) => {
-      let hiddenList = result[hostname] || [];
-      if (editingIndex !== null && editingIndex >= 0) {
-        hiddenList[editingIndex] = val;
+      let hiddenList = cleanItemsData(result[hostname] || []);
+
+      if (
+        editingIndex !== null &&
+        editingIndex >= 0 &&
+        editingIndex < hiddenList.length
+      ) {
+        hiddenList[editingIndex] = {
+          selector: val,
+          timestamp: Date.now()
+        };
       } else {
-        if (!hiddenList.includes(val)) hiddenList.push(val);
+        const existingIndex = hiddenList.findIndex(
+          (item) => item.selector === val
+        );
+        if (existingIndex !== -1) {
+          hiddenList[existingIndex].timestamp = Date.now();
+        } else {
+          hiddenList.push({ selector: val, timestamp: Date.now() });
+        }
       }
 
-      chrome.storage.local.set({ [hostname]: hiddenList }, () => {
+      let finalCleanList = cleanItemsData(hiddenList);
+
+      chrome.storage.local.set({ [hostname]: finalCleanList }, () => {
         resetEditingState();
-        loadList();
-        chrome.tabs.reload(tab.id);
       });
     });
-  });
+  };
 
-  customInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") addCustomBtn.click();
-  });
+  if (addCustomBtn) {
+    addCustomBtn.addEventListener("click", handleSaveOrAdd);
+  }
 
-  resetBtn.addEventListener("click", () => {
-    chrome.storage.local.remove([hostname], () => {
-      resetEditingState();
-      loadList();
-      chrome.tabs.reload(tab.id);
+  if (customInput) {
+    customInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        handleSaveOrAdd();
+      }
     });
-  });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      chrome.storage.local.remove([hostname], () => {
+        resetEditingState();
+      });
+    });
+  }
 });

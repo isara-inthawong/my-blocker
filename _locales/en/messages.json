@@ -122,8 +122,11 @@
   "updateBtnTooltip": {
     "message": "Update this item"
   },
+  "cancelBtnTooltip": {
+    "message": "Cancel editing"
+  },
   "editingIndexText": {
-    "message": "💡 Editing item #"
+    "message": "💡 Editing item $1"
   },
   "searchPlaceholder": {
     "message": "🔍 Search website...",
@@ -136,6 +139,9 @@
   "nextBtn": {
     "message": "Next ▶",
     "description": "Next page button text"
+  },
+  "pageOf": {
+    "message": "Page $1 of $2"
   },
   "deleteAllSiteBtn": {
     "message": "🗑️ Delete Website",

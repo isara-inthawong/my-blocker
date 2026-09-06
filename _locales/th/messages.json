@@ -122,8 +122,11 @@
   "updateBtnTooltip": {
     "message": "อัปเดตรายการนี้"
   },
+  "cancelBtnTooltip": {
+    "message": "ยกเลิกการแก้ไข"
+  },
   "editingIndexText": {
-    "message": "💡 กำลังแก้ไขรายการที่ #"
+    "message": "💡 กำลังแก้ไขรายการที่ $1"
   },
   "searchPlaceholder": {
     "message": "🔍 ค้นหาเว็บไซต์...",
@@ -136,6 +139,9 @@
   "nextBtn": {
     "message": "ถัดไป ▶",
     "description": "Next page button text"
+  },
+  "pageOf": {
+    "message": "หน้า $1 จาก $2"
   },
   "deleteAllSiteBtn": {
     "message": "🗑️ ลบเว็บไซต์นี้",
