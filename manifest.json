@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Simple Element Blocker",
+  "version": "1.0",
+  "description": "Extension สำหรับบล็อกและซ่อนโฆษณาหรือแท็กที่ไม่ต้องการ",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
