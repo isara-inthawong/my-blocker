@@ -22,14 +22,47 @@ document.addEventListener("DOMContentLoaded", async () => {
   const addNewRuleBtn = document.getElementById("addNewRuleBtn");
   const langSelect = document.getElementById("langSelect");
 
+  // ดึงคำแปลสำหรับ Placeholder และปุ่มใหม่ล่วงหน้าเพื่อไม่ให้เกิด Error
+  const searchPlaceholder =
+    typeof getMsg === "function"
+      ? await getMsg("searchPlaceholder", "🔍 Search website...")
+      : "🔍 Search website...";
+
+  // สร้างช่องค้นหาและตัวควบคุม Pagination แทรกก่อนตารางแสดงข้อมูล
+  const cardBody = document.querySelector(".card");
+  const cardHeader = cardBody.querySelector(".card-header");
+
+  const controlPanel = document.createElement("div");
+  controlPanel.style.cssText =
+    "display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; flex-wrap: wrap;";
+
+  const searchInput = document.createElement("input");
+  searchInput.type = "text";
+  searchInput.id = "searchWebsiteInput";
+  searchInput.placeholder = searchPlaceholder;
+  searchInput.style.cssText =
+    "padding: 6px 10px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; width: 250px;";
+  controlPanel.appendChild(searchInput);
+
+  const paginationContainer = document.createElement("div");
+  paginationContainer.id = "paginationContainer";
+  paginationContainer.style.cssText =
+    "display: flex; gap: 5px; align-items: center;";
+  controlPanel.appendChild(paginationContainer);
+
+  cardBody.insertBefore(controlPanel, cardHeader.nextSibling);
+
+  let currentPage = 1;
+  const itemsPerPage = 5; // กำหนดจำนวนเว็บไซต์ที่จะแสดงต่อ 1 หน้า
+  let searchQuery = "";
+  let currentEditData = null;
+
   // ฟังเหตุการณ์เมื่อข้อมูลใน chrome.storage มีการเปลี่ยนแปลงเพื่ออัปเดตหน้าจออัตโนมัติ
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local") {
       loadAllData();
     }
   });
-
-  let currentEditData = null;
 
   // กำหนดค่า select ภาษาปัจจุบันตามที่บันทึกไว้
   chrome.storage.local.get(["preferred_lang"], (data) => {
@@ -48,11 +81,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // ดักจับข้อความในช่องค้นหา
+  searchInput.addEventListener("input", (e) => {
+    searchQuery = e.target.value.toLowerCase().trim();
+    currentPage = 1; // รีเซ็ตกลับไปหน้าแรกเมื่อทำการค้นหา
+    loadAllData();
+  });
+
   async function loadAllData() {
     const noHistoryMsg = await getMsg("noItemsText", "No hidden items yet");
     const addSiteBtnText = await getMsg(
       "addSiteRuleBtn",
       "+ Add Rule for this Site"
+    );
+    const deleteAllSiteBtnText = await getMsg(
+      "deleteAllSiteBtn",
+      "🗑️ Delete Website"
     );
     const thSelector = await getMsg("tableThSelector", "CSS Selector / Rule");
     const thManage = await getMsg("tableThManage", "Management");
@@ -62,19 +106,57 @@ document.addEventListener("DOMContentLoaded", async () => {
       "confirmDeleteText",
       "Are you sure you want to delete this item?"
     );
+    const confirmDelAllText = await getMsg(
+      "confirmDeleteAllText",
+      "Are you sure you want to delete all rules for this website?"
+    );
     const websitePrefix = await getMsg("websitePrefix", "🌐 Website:");
+    const prevBtnText = await getMsg("prevBtn", "◀ Prev");
+    const nextBtnText = await getMsg("nextBtn", "Next ▶");
 
     chrome.storage.local.get(null, async (items) => {
       container.innerHTML = "";
-      const keys = Object.keys(items).filter((k) => k !== "preferred_lang");
+      let keys = Object.keys(items).filter((k) => k !== "preferred_lang");
+
+      // กรองรายการเว็บไซต์ตามคำค้นหา (Search)
+      if (searchQuery) {
+        keys = keys.filter((hostname) =>
+          hostname.toLowerCase().includes(searchQuery)
+        );
+      }
 
       if (keys.length === 0) {
         container.innerHTML = `<p style="color: #666; text-align: center; padding: 20px;">${noHistoryMsg}</p>`;
+        paginationContainer.innerHTML = "";
         return;
       }
 
-      keys.forEach((hostname) => {
+      // ฟังก์ชันแปลงและคำนวณหาเวลาล่าสุดของแต่ละเว็บไซต์เพื่อเรียงลำดับแบบ Descending (ล่าสุดขึ้นก่อน)
+      const getLatestTimestamp = (hostname) => {
         const selectors = items[hostname];
+        if (!Array.isArray(selectors) || selectors.length === 0) return 0;
+        return Math.max(
+          ...selectors.map((sel) => {
+            if (typeof sel === "object" && sel !== null) {
+              return sel.timestamp || 0;
+            }
+            return 0; // กรณีข้อมูลเก่าที่เป็น string ธรรมดา ให้เป็น 0
+          })
+        );
+      };
+
+      keys.sort((a, b) => getLatestTimestamp(b) - getLatestTimestamp(a));
+
+      // ระบบคำนวณหน้า Pagination
+      const totalPages = Math.ceil(keys.length / itemsPerPage);
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const paginatedKeys = keys.slice(startIndex, startIndex + itemsPerPage);
+
+      paginatedKeys.forEach((hostname) => {
+        let selectors = items[hostname];
         if (!Array.isArray(selectors) || selectors.length === 0) return;
 
         const section = document.createElement("div");
@@ -82,8 +164,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const siteHeader = document.createElement("div");
         siteHeader.className = "site-header";
+        siteHeader.style.display = "flex";
+        siteHeader.style.justifyContent = "space-between";
+        siteHeader.style.alignItems = "center";
+        siteHeader.style.flexWrap = "wrap";
+        siteHeader.style.gap = "10px";
 
-        // แยกโครงสร้างข้อความนำหน้าและลิงก์เว็บไซต์ออกจากกันเพื่อไม่ให้คลิกติดข้อความนำหน้า
+        // ฝั่งซ้าย: ข้อความนำหน้า + ลิงก์เว็บไซต์
         const linkWrapper = document.createElement("div");
         linkWrapper.style.display = "flex";
         linkWrapper.style.alignItems = "center";
@@ -101,6 +188,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         linkWrapper.appendChild(link);
 
         siteHeader.appendChild(linkWrapper);
+
+        // ฝั่งขวา: ปุ่มเพิ่มกฎ + ปุ่มลบทั้งหมดของเว็บไซต์นี้
+        const actionWrapper = document.createElement("div");
+        actionWrapper.style.display = "flex";
+        actionWrapper.style.gap = "8px";
 
         const addSiteBtn = document.createElement("button");
         addSiteBtn.textContent = addSiteBtnText;
@@ -123,14 +215,35 @@ document.addEventListener("DOMContentLoaded", async () => {
           editModal.style.display = "flex";
           editInput.focus();
         });
-        siteHeader.appendChild(addSiteBtn);
+        actionWrapper.appendChild(addSiteBtn);
 
+        // ปุ่มลบทั้งหมดของเว็บไซต์
+        const deleteAllSiteBtn = document.createElement("button");
+        deleteAllSiteBtn.textContent = deleteAllSiteBtnText;
+        deleteAllSiteBtn.className = "btn-del";
+        deleteAllSiteBtn.style.backgroundColor = "#d93025";
+        deleteAllSiteBtn.style.color = "#fff";
+        deleteAllSiteBtn.addEventListener("click", () => {
+          if (confirm(confirmDelAllText)) {
+            chrome.storage.local.remove(hostname, () => {
+              loadAllData();
+            });
+          }
+        });
+        actionWrapper.appendChild(deleteAllSiteBtn);
+
+        siteHeader.appendChild(actionWrapper);
         section.appendChild(siteHeader);
 
         const table = document.createElement("table");
         table.innerHTML = `<tr><th>${thSelector}</th><th style="width: 140px; text-align:center;">${thManage}</th></tr>`;
 
-        selectors.forEach((sel, index) => {
+        selectors.forEach((selItem, index) => {
+          const sel =
+            typeof selItem === "object" && selItem !== null
+              ? selItem.selector
+              : selItem;
+
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td style="word-break: break-all; font-family: monospace;">${sel}</td>
@@ -180,7 +293,49 @@ document.addEventListener("DOMContentLoaded", async () => {
         section.appendChild(table);
         container.appendChild(section);
       });
+
+      renderPagination(totalPages, prevBtnText, nextBtnText);
     });
+  }
+
+  // ฟังก์ชันสร้างปุ่มเปลี่ยนหน้า (Pagination Controls)
+  function renderPagination(totalPages, prevBtnText, nextBtnText) {
+    paginationContainer.innerHTML = "";
+    if (totalPages <= 1) return;
+
+    const prevBtn = document.createElement("button");
+    prevBtn.textContent = prevBtnText;
+    prevBtn.className = "btn-cancel";
+    prevBtn.style.padding = "4px 8px";
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.style.opacity = currentPage === 1 ? "0.5" : "1";
+    prevBtn.addEventListener("click", () => {
+      if (currentPage > 1) {
+        currentPage--;
+        loadAllData();
+      }
+    });
+    paginationContainer.appendChild(prevBtn);
+
+    const pageInfo = document.createElement("span");
+    pageInfo.style.cssText =
+      "font-size: 13px; font-weight: bold; color: #444; padding: 0 5px;";
+    pageInfo.textContent = `${currentPage} / ${totalPages}`;
+    paginationContainer.appendChild(pageInfo);
+
+    const nextBtn = document.createElement("button");
+    nextBtn.textContent = nextBtnText;
+    nextBtn.className = "btn-cancel";
+    nextBtn.style.padding = "4px 8px";
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.style.opacity = currentPage === totalPages ? "0.5" : "1";
+    nextBtn.addEventListener("click", () => {
+      if (currentPage < totalPages) {
+        currentPage++;
+        loadAllData();
+      }
+    });
+    paginationContainer.appendChild(nextBtn);
   }
 
   addNewRuleBtn.addEventListener("click", async () => {
@@ -315,7 +470,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       chrome.storage.local.get([host], (result) => {
         let selectors = result[host] || [];
-        selectors.push(newVal);
+        // แปลงข้อมูลเก่าที่เป็น string ให้เป็น object เพื่อรองรับระบบ timestamp
+        selectors = selectors.map((s) =>
+          typeof s === "string" ? { selector: s, timestamp: Date.now() } : s
+        );
+
+        // เพิ่มรายการใหม่พร้อมบันทึกเวลาปัจจุบัน
+        selectors.push({ selector: newVal, timestamp: Date.now() });
+
         chrome.storage.local.set({ [host]: selectors }, () => {
           editModal.style.display = "none";
           currentEditData = null;
@@ -323,8 +485,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     } else if (currentEditData.mode === "edit") {
       const { hostname, index, selectors } = currentEditData;
-      selectors[index] = newVal;
-      chrome.storage.local.set({ [hostname]: selectors }, () => {
+
+      let normalizedSelectors = selectors.map((s) =>
+        typeof s === "string" ? { selector: s, timestamp: Date.now() } : s
+      );
+      normalizedSelectors[index] = {
+        selector: newVal,
+        timestamp: normalizedSelectors[index].timestamp || Date.now()
+      };
+
+      chrome.storage.local.set({ [hostname]: normalizedSelectors }, () => {
         editModal.style.display = "none";
         currentEditData = null;
       });

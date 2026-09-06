@@ -124,5 +124,25 @@
   },
   "editingIndexText": {
     "message": "💡 กำลังแก้ไขรายการที่ #"
+  },
+  "searchPlaceholder": {
+    "message": "🔍 ค้นหาเว็บไซต์...",
+    "description": "Placeholder text for the website search input"
+  },
+  "prevBtn": {
+    "message": "◀ ก่อนหน้า",
+    "description": "Previous page button text"
+  },
+  "nextBtn": {
+    "message": "ถัดไป ▶",
+    "description": "Next page button text"
+  },
+  "deleteAllSiteBtn": {
+    "message": "🗑️ ลบเว็บไซต์นี้",
+    "description": "Button to delete all rules for a specific website"
+  },
+  "confirmDeleteAllText": {
+    "message": "คุณแน่ใจหรือไม่ว่าต้องการลบกฎทั้งหมดของเว็บไซต์นี้?",
+    "description": "Confirmation message before deleting all rules of a website"
   }
 }

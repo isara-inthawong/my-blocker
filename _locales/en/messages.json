@@ -124,5 +124,25 @@
   },
   "editingIndexText": {
     "message": "💡 Editing item #"
+  },
+  "searchPlaceholder": {
+    "message": "🔍 Search website...",
+    "description": "Placeholder text for the website search input"
+  },
+  "prevBtn": {
+    "message": "◀ Prev",
+    "description": "Previous page button text"
+  },
+  "nextBtn": {
+    "message": "Next ▶",
+    "description": "Next page button text"
+  },
+  "deleteAllSiteBtn": {
+    "message": "🗑️ Delete Website",
+    "description": "Button to delete all rules for a specific website"
+  },
+  "confirmDeleteAllText": {
+    "message": "Are you sure you want to delete all rules for this website?",
+    "description": "Confirmation message before deleting all rules of a website"
   }
 }
