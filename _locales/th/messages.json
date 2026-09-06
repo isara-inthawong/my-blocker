@@ -1,0 +1,13 @@
+{
+  "extName": { "message": "Simple Element Blocker" },
+  "extDesc": { "message": "บล็อก เลือกซ่อน และจัดการแท็กบนหน้าเว็บได้ตามต้องการ" },
+  "settingsTitle": { "message": "Element Blocker - จัดการรายการที่ถูกบล็อกทั้งหมด" },
+  "addWebBtn": { "message": "+ เพิ่มเว็บใหม่" },
+  "tableSelector": { "message": "CSS Selector / Rule" },
+  "tableAction": { "message": "จัดการ" },
+  "editBtn": { "message": "แก้ไข" },
+  "deleteBtn": { "message": "ลบ" },
+  "excludeBtn": { "message": "ยกเว้น" },
+  "saveBtn": { "message": "บันทึก" },
+  "cancelBtn": { "message": "ยกเลิก" }
+}

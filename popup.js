@@ -1,7 +1,6 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  // สั่งปิดโหมดเลือกทันทีที่เปิด popup ขึ้นมา เพื่อป้องกันโหมดค้างหรือบังหน้าจอ
   chrome.tabs.sendMessage(tab.id, { action: "stop_picker" }).catch(() => {});
 
   const url = new URL(tab.url);
@@ -22,8 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const items = result[hostname] || [];
       listEl.innerHTML = "";
       if (items.length === 0) {
-        listEl.innerHTML =
-          '<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;">ยังไม่มีรายการที่ซ่อน</li>';
+        listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${chrome.i18n.getMessage("noItemsText") || "No hidden items yet"}</li>`;
       } else {
         items.forEach((item, index) => {
           const li = document.createElement("li");
@@ -31,14 +29,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           span.textContent = item;
           span.title = item;
 
-          // ฟังก์ชันสำหรับเลือกรายการเพื่อเตรียมแก้ไข
           const startEditing = () => {
             customInput.value = item;
             editingIndex = index;
             addCustomBtn.innerHTML = "💾";
-            addCustomBtn.title = "อัปเดตรายการนี้";
+            addCustomBtn.title =
+              chrome.i18n.getMessage("updateBtnTooltip") || "Update this item";
             addCustomBtn.className = "add-icon-btn warning";
-            editHint.textContent = `💡 กำลังแก้รายการที่ #${index + 1}`;
+            editHint.textContent = (
+              chrome.i18n.getMessage("editingIndexText") || "💡 Editing item #"
+            ).replace("$1", index + 1);
             customInput.focus();
           };
 
@@ -47,20 +47,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           const btnGroup = document.createElement("div");
           btnGroup.className = "btn-group";
 
-          // 1. ปุ่มแก้ไข (Icon พร้อม Tooltip)
           const editBtn = document.createElement("button");
           editBtn.innerHTML = "✏️";
-          editBtn.title = "แก้ไขรายการนี้";
+          editBtn.title =
+            chrome.i18n.getMessage("editBtnTooltip") || "Edit this item";
           editBtn.className = "icon-btn btn-edit";
           editBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             startEditing();
           });
 
-          // 2. ปุ่มลบ (Icon พร้อม Tooltip)
           const delBtn = document.createElement("button");
           delBtn.innerHTML = "🗑️";
-          delBtn.title = "ลบรายการนี้";
+          delBtn.title =
+            chrome.i18n.getMessage("deleteBtnTooltip") || "Delete this item";
           delBtn.className = "icon-btn btn-del";
           delBtn.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -87,9 +87,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     editingIndex = null;
     customInput.value = "";
     addCustomBtn.innerHTML = "➕";
-    addCustomBtn.title = "เพิ่ม Custom Selector";
+    addCustomBtn.title =
+      chrome.i18n.getMessage("addBtnTooltip") || "Add Custom Selector";
     addCustomBtn.className = "add-icon-btn";
-    editHint.textContent = "💡 คลิก ✏️ รายการด้านล่างเพื่อแก้ไข";
+    editHint.textContent =
+      chrome.i18n.getMessage("editHintText") ||
+      "💡 Click ✏️ on items below to edit";
   }
 
   loadList();

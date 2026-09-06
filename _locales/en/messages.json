@@ -1,0 +1,13 @@
+{
+  "extName": { "message": "Simple Element Blocker" },
+  "extDesc": { "message": "Block, hide, and manage elements on web pages easily." },
+  "settingsTitle": { "message": "Settings & Management" },
+  "addWebBtn": { "message": "+ Add New Website" },
+  "tableSelector": { "message": "CSS Selector / Rule" },
+  "tableAction": { "message": "Actions" },
+  "editBtn": { "message": "Edit" },
+  "deleteBtn": { "message": "Delete" },
+  "excludeBtn": { "message": "Exclude" },
+  "saveBtn": { "message": "Save" },
+  "cancelBtn": { "message": "Cancel" }
+}

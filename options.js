@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("storageContent");
   const editModal = document.getElementById("editModal");
-  const modalBox = editModal.querySelector(".modal"); // อ้างอิงกล่องสีขาวข้างใน
+  const modalBox = editModal.querySelector(".modal");
   const modalTitle = document.getElementById("modalTitle");
   const hostnameRow = document.getElementById("hostnameRow");
   const hostnameInput = document.getElementById("hostnameInput");
@@ -10,8 +10,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveBtn = document.getElementById("saveBtn");
   const cancelBtn = document.getElementById("cancelBtn");
   const addNewRuleBtn = document.getElementById("addNewRuleBtn");
+  const langSelect = document.getElementById("langSelect");
 
   let currentEditData = null;
+
+  // จัดการระบบเปลี่ยนภาษา
+  if (langSelect) {
+    chrome.storage.local.get(["preferred_lang"], (data) => {
+      if (data.preferred_lang) {
+        langSelect.value = data.preferred_lang;
+      }
+    });
+
+    langSelect.addEventListener("change", (e) => {
+      const selectedLang = e.target.value;
+      chrome.storage.local.set({ preferred_lang: selectedLang }, () => {
+        location.reload();
+      });
+    });
+  }
 
   function loadAllData() {
     chrome.storage.local.get(null, (items) => {
@@ -19,8 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const keys = Object.keys(items);
 
       if (keys.length === 0) {
-        container.innerHTML =
-          '<p style="color: #666;">ยังไม่มีประวัติการบล็อกในเว็บไซต์ใดๆ</p>';
+        container.innerHTML = `<p style="color: #666;" data-i18n="noHistoryText">${chrome.i18n.getMessage("noHistoryText") || "No blocking history on any website yet"}</p>`;
         return;
       }
 
@@ -31,7 +47,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const section = document.createElement("div");
         section.style.marginBottom = "25px";
 
-        // ส่วนหัวข้อเว็บไซต์ พร้อมปุ่มเพิ่ม Rule ของเว็บนี้
         const siteHeader = document.createElement("div");
         siteHeader.className = "site-header";
 
@@ -39,20 +54,27 @@ document.addEventListener("DOMContentLoaded", () => {
         link.href = `https://${hostname}`;
         link.target = "_blank";
         link.className = "site-link";
-        link.textContent = `🌐 เว็บไซต์: ${hostname} ↗`;
+        link.textContent = `🌐 Website: ${hostname} ↗`;
         siteHeader.appendChild(link);
 
         const addSiteBtn = document.createElement("button");
-        addSiteBtn.textContent = "+ เพิ่ม Rule ของเว็บนี้";
+        addSiteBtn.textContent =
+          chrome.i18n.getMessage("addSiteRuleBtn") ||
+          "+ Add Rule for this Site";
         addSiteBtn.className = "btn-site-add";
         addSiteBtn.addEventListener("click", () => {
           currentEditData = { mode: "add-to-site", hostname };
-          modalTitle.textContent = `เพิ่ม CSS Selector ให้กับเว็บไซต์: ${hostname}`;
+          modalTitle.textContent = (
+            chrome.i18n.getMessage("modalTitleAddSite") ||
+            "Add CSS Selector to website: $1"
+          ).replace("$1", hostname);
           hostnameRow.style.display = "block";
           hostnameInput.value = hostname;
-          hostnameInput.readOnly = true; // ล็อกไม่ให้แก้ชื่อเว็บ
+          hostnameInput.readOnly = true;
           editInput.value = "";
-          previewBox.innerHTML = "พิมพ์ Selector เพื่อดูตัวอย่าง...";
+          previewBox.innerHTML =
+            chrome.i18n.getMessage("previewPlaceholder") ||
+            "Type selector to preview...";
           editModal.style.display = "flex";
           editInput.focus();
         });
@@ -61,7 +83,10 @@ document.addEventListener("DOMContentLoaded", () => {
         section.appendChild(siteHeader);
 
         const table = document.createElement("table");
-        table.innerHTML = `<tr><th>CSS Selector / Rule</th><th style="width: 140px; text-align:center;">จัดการ</th></tr>`;
+        const thCol1 =
+          chrome.i18n.getMessage("tableThSelector") || "CSS Selector / Rule";
+        const thCol2 = chrome.i18n.getMessage("tableThManage") || "Management";
+        table.innerHTML = `<tr><th>${thCol1}</th><th style="width: 140px; text-align:center;">${thCol2}</th></tr>`;
 
         selectors.forEach((sel, index) => {
           const tr = document.createElement("tr");
@@ -71,11 +96,13 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
 
           const editBtn = document.createElement("button");
-          editBtn.innerHTML = "✏️ แก้ไข";
+          editBtn.innerHTML =
+            "✏️ " + (chrome.i18n.getMessage("editBtn") || "Edit");
           editBtn.className = "btn-edit";
           editBtn.addEventListener("click", () => {
             currentEditData = { mode: "edit", hostname, index, selectors };
-            modalTitle.textContent = "แก้ไข CSS Selector";
+            modalTitle.textContent =
+              chrome.i18n.getMessage("modalTitleEdit") || "Edit CSS Selector";
             hostnameRow.style.display = "block";
             hostnameInput.value = hostname;
             hostnameInput.readOnly = true;
@@ -86,10 +113,16 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           const delBtn = document.createElement("button");
-          delBtn.innerHTML = "🗑️ ลบ";
+          delBtn.innerHTML =
+            "🗑️ " + (chrome.i18n.getMessage("deleteBtn") || "Delete");
           delBtn.className = "btn-del";
           delBtn.addEventListener("click", () => {
-            if (confirm("ต้องการลบรายการนี้ใช่หรือไม่?")) {
+            if (
+              confirm(
+                chrome.i18n.getMessage("confirmDeleteText") ||
+                  "Are you sure you want to delete this item?"
+              )
+            ) {
               selectors.splice(index, 1);
               if (selectors.length === 0) {
                 chrome.storage.local.remove(hostname, () => loadAllData());
@@ -113,22 +146,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // กดปุ่มเพิ่มเว็บใหม่ทั้งหมด
   addNewRuleBtn.addEventListener("click", () => {
     currentEditData = { mode: "add-new-site" };
-    modalTitle.textContent = "เพิ่มเว็บไซต์และ CSS Selector ใหม่";
+    modalTitle.textContent =
+      chrome.i18n.getMessage("modalTitleNewSite") ||
+      "Add New Website and CSS Selector";
     hostnameRow.style.display = "block";
     hostnameInput.value = "";
-    hostnameInput.readOnly = false; // ปลดล็อกให้พิมพ์ชื่อเว็บเองได้
+    hostnameInput.readOnly = false;
     editInput.value = "";
-    previewBox.innerHTML = "พิมพ์ Selector เพื่อดูตัวอย่าง...";
+    previewBox.innerHTML =
+      chrome.i18n.getMessage("previewPlaceholder") ||
+      "Type selector to preview...";
     editModal.style.display = "flex";
     hostnameInput.focus();
   });
 
   async function updatePreview(hostname, selector) {
     if (!hostname || !selector) return;
-    previewBox.innerHTML = "กำลังค้นหาข้อมูล...";
+    previewBox.innerHTML =
+      chrome.i18n.getMessage("loadingPreviewText") ||
+      "Searching information...";
     try {
       const response = await fetch(`https://${hostname}`, { mode: "cors" });
       const htmlText = await response.text();
@@ -139,8 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
       previewBox.innerHTML = "";
 
       if (matches.length === 0) {
-        previewBox.innerHTML =
-          '<span style="color: #666;">ไม่พบแท็กในหน้าแรก (สามารถกดบันทึกใช้งานจริงได้ปกติ)</span>';
+        previewBox.innerHTML = `<span style="color: #666;" data-i18n="noTagFoundText">${chrome.i18n.getMessage("noTagFoundText") || "No tags found on homepage (can still save and use normally)"}</span>`;
         return;
       }
 
@@ -152,7 +189,6 @@ document.addEventListener("DOMContentLoaded", () => {
           item.style.justifyContent = "space-between";
           item.style.alignItems = "center";
 
-          // ข้อความแสดงโค้ดตัวอย่าง
           const textSpan = document.createElement("span");
           const snippet =
             el.outerHTML.substring(0, 100) +
@@ -162,9 +198,9 @@ document.addEventListener("DOMContentLoaded", () => {
           textSpan.style.wordBreak = "break-all";
           item.appendChild(textSpan);
 
-          // ปุ่มสำหรับกด "ยกเว้น" รายการนี้
           const excludeBtn = document.createElement("button");
-          excludeBtn.innerHTML = "🛡️ ยกเว้น";
+          excludeBtn.innerHTML =
+            "🛡️ " + (chrome.i18n.getMessage("excludeBtn") || "Exclude");
           excludeBtn.className = "btn-del";
           excludeBtn.style.marginLeft = "8px";
           excludeBtn.style.padding = "2px 6px";
@@ -188,8 +224,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     } catch (e) {
-      previewBox.innerHTML =
-        '<span style="color: #1a73e8;">ℹ️ ข้ามการแสดงตัวอย่างสด (ติดมาตรการ CORS) แต่สามารถกดบันทึกใช้งานจริงได้ปกติครับ</span>';
+      previewBox.innerHTML = `<span style="color: #1a73e8;" data-i18n="corsBypassText">${chrome.i18n.getMessage("corsBypassText") || "ℹ️ Live preview skipped (due to CORS policy), but you can save and use it normally."}</span>`;
     }
   }
 
@@ -209,7 +244,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!currentEditData) return;
     const newVal = editInput.value.trim();
     if (newVal === "") {
-      alert("กรุณากรอก CSS Selector");
+      alert(
+        chrome.i18n.getMessage("alertEmptySelector") ||
+          "Please enter a CSS Selector"
+      );
       return;
     }
 
@@ -222,7 +260,10 @@ document.addEventListener("DOMContentLoaded", () => {
         .replace(/^https?:\/\//, "")
         .replace(/\/.*$/, "");
       if (!host) {
-        alert("กรุณากรอกชื่อเว็บไซต์ (Hostname) ให้ถูกต้อง");
+        alert(
+          chrome.i18n.getMessage("alertEmptyHostname") ||
+            "Please enter a valid website hostname"
+        );
         return;
       }
 
@@ -251,7 +292,6 @@ document.addEventListener("DOMContentLoaded", () => {
     currentEditData = null;
   });
 
-  // ป้องกันการปิด Modal เมื่อลากเมาส์ขยาย Textarea ออกนอกกรอบ
   let isMouseDownInside = false;
 
   if (modalBox) {
@@ -274,7 +314,6 @@ document.addEventListener("DOMContentLoaded", () => {
     isMouseDownInside = false;
   });
 
-  // ปรับขนาด previewBox ให้เท่ากับ textarea อัตโนมัติเมื่อมีการลากขยาย
   if (editInput && previewBox) {
     const observer = new ResizeObserver((entries) => {
       for (let entry of entries) {

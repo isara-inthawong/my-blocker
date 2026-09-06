@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Simple Element Blocker",
+  "name": "__MSG_extName__",
   "version": "1.0",
-  "description": "บล็อก เลือกซ่อน และจัดการแท็กบนหน้าเว็บได้ตามต้องการ",
+  "description": "__MSG_extDesc__",
+  "default_locale": "en",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

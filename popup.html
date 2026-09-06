@@ -11,7 +11,7 @@
       --danger: #d93025;
       --danger-hover: #b31412;
       --warning: #f9ab00;
-      --warning-hover: #e09d00;
+      --warning-hover: #ffc107;
       --bg-color: #f8f9fa;
       --border-color: #dadce0;
       --text-main: #202124;
@@ -47,7 +47,6 @@
       gap: 6px;
     }
 
-    /* ปุ่มรูปเฟืองมุมขวาบน */
     .icon-setting-btn {
       background: none;
       border: none;
@@ -61,7 +60,6 @@
       background-color: #f1f3f4;
     }
 
-    /* ปุ่มหลักแบบไอคอนเด่น */
     .hero-btn {
       width: 100%;
       height: 42px;
@@ -117,7 +115,6 @@
       border-color: var(--primary);
     }
 
-    /* ปุ่มเพิ่มแบบไอคอน */
     .add-icon-btn {
       width: 32px;
       height: 29px;
@@ -141,7 +138,7 @@
       color: #202124;
     }
     .add-icon-btn.warning:hover {
-      background-color: #ffc107;
+      background-color: var(--warning-hover);
     }
 
     .hint {
@@ -227,32 +224,31 @@
 </head>
 <body>
   <div class="header-container">
-    <h3>🛡️ Element Blocker Pro</h3>
-    <!-- ปุ่มตั้งค่ารูปเฟืองมุมขวาบน พร้อม Tooltip -->
-    <button id="openTabBtn" class="icon-setting-btn" title="เปิดหน้าตั้งค่าเป็นแท็บใหม่">⚙️</button>
+    <h3>🛡️ <span data-i18n="extName">Simple Element Blocker</span></h3>
+    <button id="openTabBtn" class="icon-setting-btn" data-i18n-title="settingsTitleTooltip" title="Open settings page">⚙️</button>
   </div>
 
-  <!-- ปุ่มเลือกซ่อนแท็ก แบบไอคอนใหญ่ พร้อม Tooltip -->
-  <button id="pickBtn" class="hero-btn" title="คลิกเพื่อเลือกซ่อนแท็ก">
+  <button id="pickBtn" class="hero-btn" data-i18n-title="pickBtnTooltip" title="Click to select and hide element">
     🎯
   </button>
   
-  <div class="section-label">Custom Selector:</div>
+  <div class="section-label" data-i18n="customSelectorLabel">Custom Selector:</div>
   <div class="custom-box">
-    <input type="text" id="customInput" placeholder="เช่น img[src$='.gif'] หรือ div.ad-banner">
-    <!-- ปุ่มเพิ่ม แบบไอคอน พร้อม Tooltip -->
-    <button id="addCustomBtn" class="add-icon-btn" title="เพิ่ม Custom Selector">➕</button>
+    <input type="text" id="customInput" data-i18n-placeholder="customInputPlaceholder" placeholder="e.g. img[src$='.gif'] or div.ad-banner">
+    <button id="addCustomBtn" class="add-icon-btn" data-i18n-title="addBtnTooltip" title="Add Custom Selector">➕</button>
   </div>
-  <div class="hint" id="editHint">💡 คลิก ✏️ รายการด้านล่างเพื่อแก้ไข</div>
+  <div class="hint" id="editHint" data-i18n="editHintText">💡 Click ✏️ on items below to edit</div>
 
-  <div class="section-label">รายการที่ซ่อนในเว็บนี้:</div>
-  <ul id="hiddenList"></ul>
+  <div class="section-label" data-i18n="hiddenListLabel">Hidden items on this site:</div>
+  <ul id="hiddenList">
+    <li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">No hidden items yet</li>
+  </ul>
   
-  <!-- ปุ่มรีเซ็ต แบบไอคอน พร้อม Tooltip -->
-  <button id="resetBtn" class="hero-btn danger" title="รีเซ็ตทั้งหมดของเว็บนี้">
+  <button id="resetBtn" class="hero-btn danger" data-i18n-title="resetBtnTooltip" title="Reset all for this site">
     🗑️
   </button>
 
+  <script src="i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
