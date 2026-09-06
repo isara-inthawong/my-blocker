@@ -163,7 +163,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       delSiteBtn.style.fontSize = "12px";
       delSiteBtn.addEventListener("click", () => {
         if (confirm(confirmDelAllText)) {
-          chrome.storage.local.remove(hostname, loadAllData);
+          // ให้ storage.onChanged เป็นตัวจัดการเรียก loadAllData อัตโนมัติ
+          chrome.storage.local.remove(hostname);
         }
       });
       actionGroup.appendChild(delSiteBtn);
@@ -235,9 +236,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (confirm(confirmDelText)) {
             selectors.splice(index, 1);
             if (selectors.length === 0) {
-              chrome.storage.local.remove(hostname, loadAllData);
+              chrome.storage.local.remove(hostname);
             } else {
-              chrome.storage.local.set({ [hostname]: selectors }, loadAllData);
+              chrome.storage.local.set({ [hostname]: selectors });
             }
           }
         });
@@ -372,7 +373,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
   }
 
-  // ระบบดักจับการขยาย/ยดขนาด textarea เพื่อปรับ previewBox อัตโนมัติรวมถึงการลากขอบ (Resize)
   if (editInput && previewBox) {
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
@@ -479,11 +479,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
 
-        chrome.storage.local.set({ [host]: existingList }, () => {
-          editModal.style.display = "none";
-          currentEditing = null;
-          loadAllData();
-        });
+        // ปิด Modal ทันที และปล่อยให้ storage.onChanged เป็นตัวสั่ง loadAllData อัตโนมัติ
+        editModal.style.display = "none";
+        currentEditing = null;
+        chrome.storage.local.set({ [host]: existingList });
       });
     });
   }
@@ -522,6 +521,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // ย้ายการฟัง Event ออกมาด้านนอก เพื่อไม่ให้ผูกซ้ำซ้อนทุกครั้งที่รัน DOMContentLoaded ใหม่
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local") {
       loadAllData();
