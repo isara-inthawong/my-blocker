@@ -65,40 +65,52 @@ function createHighlightBox() {
   document.body.appendChild(highlightBox);
 }
 
-// ใช้ chrome.i18n.getMessage ดึงข้อความตามภาษาของเบราว์เซอร์หรือส่วนขยายโดยตรง
 function createBanner() {
   let banner = document.getElementById("element-blocker-banner");
   if (banner) {
     banner.remove();
   }
 
-  const bannerText =
-    chrome.i18n.getMessage("pickerBannerText") ||
-    "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)";
-  const exitText = chrome.i18n.getMessage("exitBtnText") || "Exit";
+  // ดึงภาษาที่ผู้ใช้บันทึกไว้ หรือเช็คจากภาษาของเบราว์เซอร์
+  chrome.storage.local.get(["preferred_lang"], (data) => {
+    const lang =
+      data.preferred_lang ||
+      (navigator.language.startsWith("th") ? "th" : "en");
 
-  banner = document.createElement("div");
-  banner.id = "element-blocker-banner";
-  banner.style.cssText = `
-    position: fixed; top: 10px; right: 10px; z-index: 999999;
-    background: #d93025; color: white; padding: 10px 15px;
-    font-family: sans-serif; font-size: 14px; border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex;
-    align-items: center; gap: 10px;
-  `;
+    const bannerText =
+      lang === "th"
+        ? "🔴 โหมดเลือก Element (คลิกซ้ายเพื่อซ่อน, กด ESC เพื่อออก)"
+        : "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)";
 
-  banner.innerHTML = `
-    <span>${bannerText}</span>
-    <button id="exit-picker-btn" style="background: white; color: #d93025; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">${exitText}</button>
-  `;
-  document.body.appendChild(banner);
+    const exitText = lang === "th" ? "ออก" : "Exit";
 
-  document
-    .getElementById("exit-picker-btn")
-    .addEventListener("click", stopPicking);
+    banner = document.createElement("div");
+    banner.id = "element-blocker-banner";
+    banner.style.cssText = `
+      position: fixed; top: 10px; right: 10px; z-index: 999999;
+      background: #d93025; color: white; padding: 10px 15px;
+      font-family: sans-serif; font-size: 14px; border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex;
+      align-items: center; gap: 10px;
+    `;
 
-  return banner;
+    banner.innerHTML = `
+      <span>${bannerText}</span>
+      <button id="exit-picker-btn" style="background: white; color: #d93025; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">${exitText}</button>
+    `;
+    document.body.appendChild(banner);
+
+    document
+      .getElementById("exit-picker-btn")
+      .addEventListener("click", stopPicking);
+  });
 }
+// อัปเดตภาษาของแบนเนอร์ทันทีเมื่อมีการเปลี่ยนภาษาในระบบขณะเปิดโหมดอยู่
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local" && changes.preferred_lang && isPicking) {
+    createBanner();
+  }
+});
 
 document.addEventListener(
   "mouseover",

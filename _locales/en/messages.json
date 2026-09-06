@@ -124,11 +124,5 @@
   },
   "editingIndexText": {
     "message": "💡 Editing item #"
-  },
-  "pickerBannerText": {
-    "message": "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)"
-  },
-  "exitBtnText": {
-    "message": "Exit"
   }
 }

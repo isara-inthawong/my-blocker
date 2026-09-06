@@ -124,11 +124,5 @@
   },
   "editingIndexText": {
     "message": "💡 กำลังแก้ไขรายการที่ #"
-  },
-  "pickerBannerText": {
-    "message": "🔴 โหมดเลือกซ่อนทำงานอยู่ (คลิกซ้ายเพื่อเลือกซ่อน, กด ESC เพื่อออก)"
-  },
-  "exitBtnText": {
-    "message": "ออก"
   }
 }
