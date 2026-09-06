@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Element Blocker - ตั้งค่าและการจัดการ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 20px;
+      background-color: #f8f9fa;
+      color: #202124;
+    }
+    h1 {
+      font-size: 20px;
+      color: #1a73e8;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .site-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 5px;
+      margin-bottom: 25px;
+    }
+    th, td {
+      border: 1px solid #dadce0;
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      background-color: #f1f3f4;
+    }
+    button {
+      padding: 5px 10px;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 4px;
+    }
+    .btn-add {
+      background-color: #34a853;
+      font-weight: bold;
+    }
+    .btn-add:hover {
+      background-color: #2e8b46;
+    }
+    .btn-site-add {
+      background-color: #34a853;
+      font-size: 11px;
+      padding: 4px 10px;
+    }
+    .btn-site-add:hover {
+      background-color: #2e8b46;
+    }
+    .btn-edit {
+      background-color: #f9ab00;
+      color: #202124;
+    }
+    .btn-edit:hover {
+      background-color: #e09d00;
+    }
+    .btn-del {
+      background-color: #d93025;
+    }
+    .btn-del:hover {
+      background-color: #b31412;
+    }
+    a.site-link {
+      color: #1a73e8;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    a.site-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Modal Style */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      pointer-events: auto;
+    }
+    .modal {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 700px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      pointer-events: auto;
+    }
+    .modal h3 {
+      margin-top: 0;
+      font-size: 16px;
+      color: #1a73e8;
+    }
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-row {
+      display: flex;
+      gap: 15px;
+    }
+    .modal-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal label {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #444;
+    }
+    .modal input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .modal textarea {
+      width: 100%;
+      height: 110px; /* ขนาดเริ่มต้น */
+      padding: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      box-sizing: border-box;
+      resize: vertical; /* อนุญาตให้ผู้ใช้ลากขยายความสูงได้อิสระ */
+    }
+    .modal input[readonly] {
+      background-color: #f1f3f4;
+      color: #5f6368;
+    }
+    .preview-box {
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      height: 110px; /* เริ่มต้นเท่ากับ textarea */
+      background: #f9f9f9;
+      padding: 8px;
+      overflow-y: auto;
+      font-size: 11px;
+      font-family: monospace;
+      color: #333;
+      box-sizing: border-box;
+    }
+    .preview-item {
+      padding: 3px 6px;
+      margin-bottom: 3px;
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 2px;
+      word-break: break-all;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 15px;
+    }
+    .btn-save {
+      background-color: #1a73e8;
+    }
+    .btn-save:hover {
+      background-color: #1557b0;
+    }
+    .btn-cancel {
+      background-color: #5f6368;
+    }
+    .btn-cancel:hover {
+      background-color: #484c50;
+    }
+  </style>
+</head>
+<body>
+  <h1>🛡️ Element Blocker - จัดการรายการที่ถูกบล็อกทั้งหมด</h1>
+  <div class="card">
+    <div class="card-header">
+      <p style="margin: 0;">รายการกฎและ Selector ทั้งหมดที่ถูกบันทึกไว้แยกตามเว็บไซต์:</p>
+      <button class="btn-add" id="addNewRuleBtn">+ เพิ่มเว็บใหม่</button>
+    </div>
+    <div id="storageContent">กำลังโหลด...</div>
+  </div>
+
+  <!-- Modal สำหรับเพิ่ม/แก้ไข -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <h3 id="modalTitle">แก้ไข CSS Selector</h3>
+      <div class="modal-body">
+        <div id="hostnameRow">
+          <label>เว็บไซต์ (Hostname):</label>
+          <input type="text" id="hostnameInput" placeholder="example.com">
+        </div>
+        <div class="modal-row">
+          <div class="modal-col">
+            <label>CSS Selector:</label>
+            <textarea id="editInput"></textarea>
+          </div>
+          <div class="modal-col">
+            <label>ตัวอย่างโครงสร้างเว็บที่ตรงกัน (Preview):</label>
+            <div class="preview-box" id="previewBox">พิมพ์ Selector เพื่อดูตัวอย่าง...</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-cancel" id="cancelBtn">ยกเลิก</button>
+        <button class="btn-save" id="saveBtn">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
