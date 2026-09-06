@@ -1,4 +1,30 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  // แปลภาษาอัตโนมัติสำหรับทุก Element ที่มี data-i18n, data-i18n-title และ data-i18n-placeholder
+  if (typeof getMsg === "function") {
+    const elements = document.querySelectorAll("[data-i18n]");
+    for (const el of elements) {
+      const key = el.getAttribute("data-i18n");
+      const translated = await getMsg(key);
+      if (translated) el.textContent = translated;
+    }
+
+    const titleElements = document.querySelectorAll("[data-i18n-title]");
+    for (const el of titleElements) {
+      const key = el.getAttribute("data-i18n-title");
+      const translated = await getMsg(key);
+      if (translated) el.title = translated;
+    }
+
+    const placeholderElements = document.querySelectorAll(
+      "[data-i18n-placeholder]"
+    );
+    for (const el of placeholderElements) {
+      const key = el.getAttribute("data-i18n-placeholder");
+      const translated = await getMsg(key);
+      if (translated) el.placeholder = translated;
+    }
+  }
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   chrome.tabs.sendMessage(tab.id, { action: "stop_picker" }).catch(() => {});
@@ -16,40 +42,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let editingIndex = null;
 
-  // แปลข้อความและ Tooltip ทั้งหมดใน popup.html ตามภาษาที่เลือก
-  async function applyTranslations() {
-    document.querySelector('[data-i18n="extName"]').textContent = await getMsg(
-      "extName",
-      "Simple Element Blocker"
-    );
-    document.getElementById("openTabBtn").title = await getMsg(
-      "settingsTitleTooltip",
-      "Open settings page"
-    );
-    document.getElementById("pickBtn").title = await getMsg(
-      "pickBtnTooltip",
-      "Click to select and hide element"
-    );
-    document.querySelector('[data-i18n="customSelectorLabel"]').textContent =
-      await getMsg("customSelectorLabel", "Custom Selector:");
-    customInput.placeholder = await getMsg(
-      "customInputPlaceholder",
-      "e.g. img[src$='.gif'] or div.ad-banner"
-    );
-    addCustomBtn.title = await getMsg("addBtnTooltip", "Add Custom Selector");
-    editHint.textContent = await getMsg(
-      "editHintText",
-      "💡 Click ✏️ on items below to edit"
-    );
-    document.querySelector('[data-i18n="hiddenListLabel"]').textContent =
-      await getMsg("hiddenListLabel", "Hidden items on this site:");
-    document.getElementById("resetBtn").title = await getMsg(
-      "resetBtnTooltip",
-      "Reset all for this site"
-    );
-  }
-
-  await applyTranslations();
+  // ฟังเหตุการณ์เมื่อข้อมูลใน storage เปลี่ยนแปลง ให้โหลดรายการใน Popup ใหม่ทันที
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && changes[hostname]) {
+      loadList();
+    }
+  });
 
   async function loadList() {
     chrome.storage.local.get([hostname], async (result) => {
@@ -57,7 +55,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       listEl.innerHTML = "";
       if (items.length === 0) {
         const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
-        listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;">${noItemsMsg}</li>`;
+        listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
       } else {
         const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
         const deleteTooltip = await getMsg(

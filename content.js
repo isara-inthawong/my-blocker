@@ -39,9 +39,7 @@ function applySavedHiddenElements() {
         document.querySelectorAll(selector).forEach((el) => {
           el.style.setProperty("display", "none", "important");
         });
-      } catch (e) {
-        // ข้าม selector ที่พิมพ์ผิดรูปแบบเพื่อไม่ให้เว็บพัง
-      }
+      } catch (e) {}
     });
   });
 }
@@ -66,57 +64,39 @@ function createHighlightBox() {
   highlightBox.style.pointerEvents = "none";
   document.body.appendChild(highlightBox);
 }
-// content.js จะไม่สามารถเรียกใช้ getMsg จากไฟล์ i18n.js ได้โดยตรง เนื่องจาก Chrome ไม่อนุญาตให้ Content Script แชร์ฟังก์ชันข้ามไฟล์จาวาสคริปต์
-async function getMsg(key, fallback) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(["preferred_lang"], async (data) => {
-      let lang =
-        data.preferred_lang ||
-        (chrome.i18n.getUILanguage().startsWith("th") ? "th" : "en");
-      try {
-        const response = await fetch(
-          chrome.runtime.getURL(`_locales/${lang}/messages.json`)
-        );
-        const messages = await response.json();
-        if (messages[key] && messages[key].message) {
-          resolve(messages[key].message);
-          return;
-        }
-      } catch (e) {}
-      resolve(fallback);
-    });
-  });
-}
 
-async function createBanner() {
+// ใช้ chrome.i18n.getMessage ดึงข้อความตามภาษาของเบราว์เซอร์หรือส่วนขยายโดยตรง
+function createBanner() {
   let banner = document.getElementById("element-blocker-banner");
-  if (!banner) {
-    banner = document.createElement("div");
-    banner.id = "element-blocker-banner";
-    banner.style.cssText = `
-      position: fixed; top: 10px; right: 10px; z-index: 999999;
-      background: #d93025; color: white; padding: 10px 15px;
-      font-family: sans-serif; font-size: 14px; border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: none;
-      align-items: center; gap: 10px;
-    `;
-
-    const bannerText = await getMsg(
-      "pickerBannerText",
-      "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)"
-    );
-    const exitText = await getMsg("exitBtnText", "Exit");
-
-    banner.innerHTML = `
-      <span>${bannerText}</span>
-      <button id="exit-picker-btn" style="background: white; color: #d93025; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">${exitText}</button>
-    `;
-    document.body.appendChild(banner);
-
-    document
-      .getElementById("exit-picker-btn")
-      .addEventListener("click", stopPicking);
+  if (banner) {
+    banner.remove();
   }
+
+  const bannerText =
+    chrome.i18n.getMessage("pickerBannerText") ||
+    "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)";
+  const exitText = chrome.i18n.getMessage("exitBtnText") || "Exit";
+
+  banner = document.createElement("div");
+  banner.id = "element-blocker-banner";
+  banner.style.cssText = `
+    position: fixed; top: 10px; right: 10px; z-index: 999999;
+    background: #d93025; color: white; padding: 10px 15px;
+    font-family: sans-serif; font-size: 14px; border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex;
+    align-items: center; gap: 10px;
+  `;
+
+  banner.innerHTML = `
+    <span>${bannerText}</span>
+    <button id="exit-picker-btn" style="background: white; color: #d93025; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">${exitText}</button>
+  `;
+  document.body.appendChild(banner);
+
+  document
+    .getElementById("exit-picker-btn")
+    .addEventListener("click", stopPicking);
+
   return banner;
 }
 
@@ -168,7 +148,7 @@ function stopPicking() {
   }
   const banner = document.getElementById("element-blocker-banner");
   if (banner) {
-    banner.style.display = "none";
+    banner.remove();
   }
 }
 
@@ -182,11 +162,10 @@ document.addEventListener(
   true
 );
 
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_picker") {
     isPicking = true;
-    const banner = await createBanner();
-    banner.style.display = "flex";
+    createBanner();
     sendResponse({ status: "started" });
   } else if (request.action === "stop_picker") {
     stopPicking();

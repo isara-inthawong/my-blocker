@@ -1,4 +1,14 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  // แปลภาษาอัตโนมัติสำหรับ Element ทั่วไปในหน้า Options ที่มี data-i18n
+  if (typeof getMsg === "function") {
+    const elements = document.querySelectorAll("[data-i18n]");
+    for (const el of elements) {
+      const key = el.getAttribute("data-i18n");
+      const translated = await getMsg(key);
+      if (translated) el.textContent = translated;
+    }
+  }
+
   const container = document.getElementById("storageContent");
   const editModal = document.getElementById("editModal");
   const modalBox = editModal.querySelector(".modal");
@@ -12,7 +22,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const addNewRuleBtn = document.getElementById("addNewRuleBtn");
   const langSelect = document.getElementById("langSelect");
 
+  // ฟังเหตุการณ์เมื่อข้อมูลใน chrome.storage มีการเปลี่ยนแปลงเพื่ออัปเดตหน้าจออัตโนมัติ
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local") {
+      loadAllData();
+    }
+  });
+
   let currentEditData = null;
+
+  // กำหนดค่า select ภาษาปัจจุบันตามที่บันทึกไว้
+  chrome.storage.local.get(["preferred_lang"], (data) => {
+    let currentLang =
+      data.preferred_lang ||
+      (chrome.i18n.getUILanguage().startsWith("th") ? "th" : "en");
+    if (langSelect) langSelect.value = currentLang;
+  });
 
   if (langSelect) {
     langSelect.addEventListener("change", (e) => {
@@ -24,7 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function loadAllData() {
-    const noHistoryMsg = await getMsg("loadingText", "Loading...");
+    const noHistoryMsg = await getMsg("noItemsText", "No hidden items yet");
     const addSiteBtnText = await getMsg(
       "addSiteRuleBtn",
       "+ Add Rule for this Site"
@@ -39,12 +64,12 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     const websitePrefix = await getMsg("websitePrefix", "🌐 Website:");
 
-    chrome.storage.local.get(null, (items) => {
+    chrome.storage.local.get(null, async (items) => {
       container.innerHTML = "";
       const keys = Object.keys(items).filter((k) => k !== "preferred_lang");
 
       if (keys.length === 0) {
-        container.innerHTML = `<p style="color: #666;">${noHistoryMsg}</p>`;
+        container.innerHTML = `<p style="color: #666; text-align: center; padding: 20px;">${noHistoryMsg}</p>`;
         return;
       }
 
@@ -101,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
 
           const editBtn = document.createElement("button");
-          editBtn.innerHTML = `✏️ ${editBtnText}`;
+          editBtn.innerHTML = editBtnText;
           editBtn.className = "btn-edit";
           editBtn.addEventListener("click", async () => {
             currentEditData = { mode: "edit", hostname, index, selectors };
@@ -119,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           const delBtn = document.createElement("button");
-          delBtn.innerHTML = `🗑️ ${deleteBtnText}`;
+          delBtn.innerHTML = deleteBtnText;
           delBtn.className = "btn-del";
           delBtn.addEventListener("click", () => {
             if (confirm(confirmDelText)) {
@@ -282,7 +307,6 @@ document.addEventListener("DOMContentLoaded", () => {
         chrome.storage.local.set({ [host]: selectors }, () => {
           editModal.style.display = "none";
           currentEditData = null;
-          loadAllData();
         });
       });
     } else if (currentEditData.mode === "edit") {
@@ -291,7 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
       chrome.storage.local.set({ [hostname]: selectors }, () => {
         editModal.style.display = "none";
         currentEditData = null;
-        loadAllData();
       });
     }
   });
