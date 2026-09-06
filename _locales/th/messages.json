@@ -56,9 +56,6 @@
   "deleteBtn": {
     "message": "🗑️ ลบ"
   },
-  "confirmDeleteText": {
-    "message": "คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?"
-  },
   "modalTitleAddSite": {
     "message": "เพิ่ม CSS Selector สำหรับเว็บไซต์: $1"
   },

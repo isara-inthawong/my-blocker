@@ -56,9 +56,6 @@
   "deleteBtn": {
     "message": "🗑️ Delete"
   },
-  "confirmDeleteText": {
-    "message": "Are you sure you want to delete this item?"
-  },
   "modalTitleAddSite": {
     "message": "Add CSS Selector to website: $1"
   },

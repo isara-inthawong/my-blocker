@@ -75,10 +75,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       "addSiteRuleBtn",
       "+ Add Rule for this Website"
     );
-    const confirmDelText = await safeGetMsg(
-      "confirmDeleteText",
-      "Are you sure you want to delete this item?"
-    );
     const confirmDelAllText = await safeGetMsg(
       "confirmDeleteAllText",
       "Are you sure you want to delete all rules for this website?"
@@ -258,13 +254,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         delBtn.style.padding = "5px 10px";
         delBtn.style.fontSize = "11px";
         delBtn.addEventListener("click", () => {
-          if (confirm(confirmDelText)) {
-            selectors.splice(index, 1);
-            if (selectors.length === 0) {
-              chrome.storage.local.remove(hostname);
-            } else {
-              chrome.storage.local.set({ [hostname]: selectors });
-            }
+          selectors.splice(index, 1);
+          if (selectors.length === 0) {
+            chrome.storage.local.remove(hostname);
+          } else {
+            chrome.storage.local.set({ [hostname]: selectors });
           }
         });
         actionTd.appendChild(delBtn);
@@ -544,6 +538,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local") {
+      const keys = Object.keys(changes);
+      if (keys.length === 1 && keys[0] === "preferred_lang") {
+        return;
+      }
       loadAllData();
     }
   });
