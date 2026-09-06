@@ -32,6 +32,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     return defaultText;
   }
 
+  // ฟังก์ชันทำความสะอาดและป้องกันข้อมูลซ้ำซ้อน
+  function cleanItemsData(rawItems) {
+    if (!Array.isArray(rawItems)) return [];
+
+    let uniqueMap = new Map();
+    rawItems.forEach((item) => {
+      let sel = typeof item === "string" ? item : item.selector || "";
+      sel = sel.trim();
+      if (sel !== "") {
+        let timestamp =
+          typeof item === "object" && item !== null && item.timestamp
+            ? item.timestamp
+            : Date.now();
+        if (!uniqueMap.has(sel)) {
+          uniqueMap.set(sel, { selector: sel, timestamp: timestamp });
+        } else {
+          // เก็บตัวที่มี timestamp ล่าสุดกว่า
+          if (timestamp > uniqueMap.get(sel).timestamp) {
+            uniqueMap.set(sel, { selector: sel, timestamp: timestamp });
+          }
+        }
+      }
+    });
+
+    let cleanedArray = Array.from(uniqueMap.values());
+    cleanedArray.sort((a, b) => b.timestamp - a.timestamp);
+    return cleanedArray;
+  }
+
   async function renderData(items) {
     if (!container) return;
     container.innerHTML = "";
@@ -77,8 +106,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const currentKeys = keys.slice(startIndex, startIndex + itemsPerPage);
 
     currentKeys.forEach((hostname) => {
-      let selectors = items[hostname];
-      if (!Array.isArray(selectors)) return;
+      let selectors = cleanItemsData(items[hostname]);
+      if (selectors.length === 0) return;
 
       const section = document.createElement("div");
       section.style.marginBottom = "25px";
@@ -163,7 +192,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       delSiteBtn.style.fontSize = "12px";
       delSiteBtn.addEventListener("click", () => {
         if (confirm(confirmDelAllText)) {
-          // ให้ storage.onChanged เป็นตัวจัดการเรียก loadAllData อัตโนมัติ
           chrome.storage.local.remove(hostname);
         }
       });
@@ -185,10 +213,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       `;
 
       selectors.forEach((selItem, index) => {
-        const sel =
-          typeof selItem === "object" && selItem !== null
-            ? selItem.selector
-            : selItem;
+        const sel = selItem.selector;
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -445,14 +470,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         .toLowerCase();
 
       chrome.storage.local.get([host], (result) => {
-        let existingList = result[host] || [];
-        if (!Array.isArray(existingList)) existingList = [];
-
-        existingList = existingList.map((item) =>
-          typeof item === "string"
-            ? { selector: item, timestamp: Date.now() }
-            : item
-        );
+        let existingList = cleanItemsData(result[host] || []);
 
         if (currentEditing && currentEditing.hostname === host) {
           const index = currentEditing.index;
@@ -468,10 +486,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
           }
         } else {
-          const exists = existingList.some(
+          const existsIndex = existingList.findIndex(
             (item) => item.selector === selectorText
           );
-          if (!exists) {
+          if (existsIndex !== -1) {
+            existingList[existsIndex].timestamp = Date.now();
+          } else {
             existingList.push({
               selector: selectorText,
               timestamp: Date.now()
@@ -479,10 +499,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
 
-        // ปิด Modal ทันที และปล่อยให้ storage.onChanged เป็นตัวสั่ง loadAllData อัตโนมัติ
+        let finalCleanList = cleanItemsData(existingList);
+
         editModal.style.display = "none";
         currentEditing = null;
-        chrome.storage.local.set({ [host]: existingList });
+        chrome.storage.local.set({ [host]: finalCleanList });
       });
     });
   }
@@ -521,7 +542,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // ย้ายการฟัง Event ออกมาด้านนอก เพื่อไม่ให้ผูกซ้ำซ้อนทุกครั้งที่รัน DOMContentLoaded ใหม่
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local") {
       loadAllData();
