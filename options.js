@@ -148,9 +148,42 @@ document.addEventListener("DOMContentLoaded", () => {
         if (idx < 10) {
           const item = document.createElement("div");
           item.className = "preview-item";
-          item.textContent =
-            el.outerHTML.substring(0, 150) +
-            (el.outerHTML.length > 150 ? "..." : "");
+          item.style.display = "flex";
+          item.style.justifyContent = "space-between";
+          item.style.alignItems = "center";
+
+          // ข้อความแสดงโค้ดตัวอย่าง
+          const textSpan = document.createElement("span");
+          const snippet =
+            el.outerHTML.substring(0, 100) +
+            (el.outerHTML.length > 100 ? "..." : "");
+          textSpan.textContent = snippet;
+          textSpan.style.flex = "1";
+          textSpan.style.wordBreak = "break-all";
+          item.appendChild(textSpan);
+
+          // ปุ่มสำหรับกด "ยกเว้น" รายการนี้
+          const excludeBtn = document.createElement("button");
+          excludeBtn.textContent = "ยกเว้น";
+          excludeBtn.className = "btn-del";
+          excludeBtn.style.marginLeft = "8px";
+          excludeBtn.style.padding = "2px 6px";
+          excludeBtn.style.fontSize = "10px";
+
+          excludeBtn.addEventListener("click", () => {
+            const srcAttr = el.getAttribute("src");
+            if (srcAttr) {
+              let currentVal = editInput.value.trim();
+              const filename = srcAttr.split("/").pop();
+              const exclusion = `:not([src$="${filename}"])`;
+              if (!currentVal.includes(exclusion)) {
+                editInput.value = currentVal + exclusion;
+                updatePreview(hostname, editInput.value.trim());
+              }
+            }
+          });
+
+          item.appendChild(excludeBtn);
           previewBox.appendChild(item);
         }
       });
@@ -228,14 +261,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   editModal.addEventListener("mousedown", (e) => {
-    // ถ้ารวมคลิกเริ่มที่ฉากหลังสีดำด้านนอก
     if (e.target === editModal) {
       isMouseDownInside = false;
     }
   });
 
   editModal.addEventListener("mouseup", (e) => {
-    // ปิดก็ต่อเมื่อคลิกและปล่อยเมาส์ที่ฉากหลังสีดำ (ไม่ใช่การลากมาจากข้างใน)
     if (e.target === editModal && !isMouseDownInside) {
       editModal.style.display = "none";
       currentEditData = null;
