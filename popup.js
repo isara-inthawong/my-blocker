@@ -27,7 +27,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url) return;
 
-  chrome.tabs.sendMessage(tab.id, { action: "stop_picker" }).catch(() => {});
+  if (tab.url && tab.url.startsWith("http")) {
+    chrome.tabs.sendMessage(tab.id, { action: "stop_picker" }).catch(() => {});
+  }
 
   const url = new URL(tab.url);
   const hostname = url.hostname;
@@ -129,12 +131,41 @@ document.addEventListener("DOMContentLoaded", async () => {
           const originalIndex = itemObj.originalIndex;
 
           const li = document.createElement("li");
-          const span = document.createElement("span");
 
-          // แสดงหมายเลขลำดับนำหน้า Selector (เช่น 1., 2.)
-          const itemNumber = displayIndex + 1;
-          span.textContent = `${itemNumber}. ${sel}`;
+          // สร้างกล่องย่อยหุ้ม badge และข้อความ selector ไว้ด้วยกัน เพื่อป้องกันไม่ให้ CSS กลางดันช่องว่างกว้างเกินไป
+          const textContainer = document.createElement("div");
+          textContainer.style.display = "flex";
+          textContainer.style.alignItems = "center";
+          textContainer.style.gap = "8px"; // กำหนดระยะห่างคงที่ เช่น 8px พอดีๆ
+          textContainer.style.flex = "1";
+          textContainer.style.overflow = "hidden";
+          textContainer.style.marginRight = "6px";
+
+          // สร้างป้ายแสดงลำดับ
+          const badge = document.createElement("span");
+          badge.textContent = `#${displayIndex + 1}`;
+          badge.style.color = "#888";
+          badge.style.display = "inline-block";
+          badge.style.minWidth = "24px";
+          badge.style.fontWeight = "600";
+          badge.style.flexShrink = "0";
+          badge.style.flexGrow = "0";
+          badge.style.cursor = "pointer";
+          badge.style.whiteSpace = "nowrap";
+          badge.style.marginRight = "0";
+
+          const span = document.createElement("span");
+          span.textContent = sel;
           span.title = sel;
+          span.style.flex = "1"; // ให้ข้อความยืดหยุ่นเต็มพื้นที่ที่เหลือ
+          span.style.minWidth = "0"; // สำคัญมาก! ป้องกันไม่ให้เฟล็กซ์ดันจนข้อความหรือตัวเลขหาย
+          span.style.overflow = "hidden";
+          span.style.textOverflow = "ellipsis";
+          span.style.whiteSpace = "nowrap";
+          span.style.marginLeft = "0";
+
+          textContainer.appendChild(badge);
+          textContainer.appendChild(span);
 
           const startEditing = async () => {
             customInput.value = sel;
@@ -161,6 +192,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             customInput.focus();
           };
 
+          badge.addEventListener("click", startEditing);
           span.addEventListener("click", startEditing);
 
           const btnGroup = document.createElement("div");
@@ -199,7 +231,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           btnGroup.appendChild(editBtn);
           btnGroup.appendChild(delBtn);
-          li.appendChild(span);
+
+          li.appendChild(textContainer);
           li.appendChild(btnGroup);
           listEl.appendChild(li);
         });
