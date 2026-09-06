@@ -68,6 +68,32 @@ function createHighlightBox() {
   document.body.appendChild(highlightBox);
 }
 
+// สร้างแถบบอกสถานะมุมขวาบนเมื่อเปิดโหมดเลือก
+function createBanner() {
+  let banner = document.getElementById("element-blocker-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "element-blocker-banner";
+    banner.style.cssText = `
+      position: fixed; top: 10px; right: 10px; z-index: 999999;
+      background: #d93025; color: white; padding: 10px 15px;
+      font-family: sans-serif; font-size: 14px; border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: none;
+      align-items: center; gap: 10px;
+    `;
+    banner.innerHTML = `
+      <span>🔴 โหมดเลือกแท็กทำงานอยู่ (คลิกซ้ายเพื่อซ่อนต่อเนื่อง, กด ESC เพื่อออก)</span>
+      <button id="exit-picker-btn" style="background: white; color: #d93025; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">ออก</button>
+    `;
+    document.body.appendChild(banner);
+
+    document
+      .getElementById("exit-picker-btn")
+      .addEventListener("click", stopPicking);
+  }
+  return banner;
+}
+
 document.addEventListener(
   "mouseover",
   (e) => {
@@ -104,7 +130,7 @@ document.addEventListener(
         }
       });
     }
-    stopPicking();
+    // ปรับให้ไม่เรียก stopPicking() เพื่อให้สามารถคลิกเลือกซ่อนชิ้นต่อไปได้ต่อเนื่อง
   },
   true
 );
@@ -115,11 +141,28 @@ function stopPicking() {
     highlightBox.remove();
     highlightBox = null;
   }
+  const banner = document.getElementById("element-blocker-banner");
+  if (banner) {
+    banner.style.display = "none";
+  }
 }
+
+// รองรับการกดปุ่ม ESC เพื่อออกจากการเลือก
+document.addEventListener(
+  "keydown",
+  (e) => {
+    if (isPicking && e.key === "Escape") {
+      stopPicking();
+    }
+  },
+  true
+);
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_picker") {
     isPicking = true;
+    const banner = createBanner();
+    banner.style.display = "flex";
     sendResponse({ status: "started" });
   }
 });
