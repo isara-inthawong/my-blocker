@@ -1,28 +1,12 @@
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof getMsg === "function") {
-    const elements = document.querySelectorAll("[data-i18n]");
-    for (const el of elements) {
-      const key = el.getAttribute("data-i18n");
-      const translated = await getMsg(key);
-      if (translated) el.textContent = translated;
-    }
-
-    const titleElements = document.querySelectorAll("[data-i18n-title]");
-    for (const el of titleElements) {
-      const key = el.getAttribute("data-i18n-title");
-      const translated = await getMsg(key);
-      if (translated) el.title = translated;
-    }
-
-    const placeholderElements = document.querySelectorAll(
-      "[data-i18n-placeholder]"
-    );
-    for (const el of placeholderElements) {
-      const key = el.getAttribute("data-i18n-placeholder");
-      const translated = await getMsg(key);
-      if (translated) el.placeholder = translated;
+  // ฟังก์ชันสำหรับแปลงภาษา element ภายใน popup
+  async function localizePopupElements() {
+    if (typeof localizePage === "function") {
+      await localizePage();
     }
   }
+
+  await localizePopupElements();
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url) return;
@@ -62,9 +46,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   cancelEditBtn.style.backgroundColor = "#e4e6eb";
   addCustomBtn.parentNode.insertBefore(cancelEditBtn, addCustomBtn.nextSibling);
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === "local" && changes[hostname]) {
-      loadList();
+  // ดักฟังการเปลี่ยนภาษาหรือข้อมูลใน storage แบบเรียลไทม์
+  chrome.storage.onChanged.addListener(async (changes, areaName) => {
+    if (areaName === "local") {
+      if (changes.preferred_lang) {
+        await localizePopupElements();
+        await resetEditingState();
+        loadList();
+      }
+      if (changes[hostname]) {
+        loadList();
+      }
     }
   });
 
@@ -132,16 +124,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           const li = document.createElement("li");
 
-          // สร้างกล่องย่อยหุ้ม badge และข้อความ selector ไว้ด้วยกัน เพื่อป้องกันไม่ให้ CSS กลางดันช่องว่างกว้างเกินไป
           const textContainer = document.createElement("div");
           textContainer.style.display = "flex";
           textContainer.style.alignItems = "center";
-          textContainer.style.gap = "8px"; // กำหนดระยะห่างคงที่ เช่น 8px พอดีๆ
+          textContainer.style.gap = "8px";
           textContainer.style.flex = "1";
           textContainer.style.overflow = "hidden";
           textContainer.style.marginRight = "6px";
 
-          // สร้างป้ายแสดงลำดับ
           const badge = document.createElement("span");
           badge.textContent = `#${displayIndex + 1}`;
           badge.style.color = "#888";
@@ -157,8 +147,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           const span = document.createElement("span");
           span.textContent = sel;
           span.title = sel;
-          span.style.flex = "1"; // ให้ข้อความยืดหยุ่นเต็มพื้นที่ที่เหลือ
-          span.style.minWidth = "0"; // สำคัญมาก! ป้องกันไม่ให้เฟล็กซ์ดันจนข้อความหรือตัวเลขหาย
+          span.style.flex = "1";
+          span.style.minWidth = "0";
           span.style.overflow = "hidden";
           span.style.textOverflow = "ellipsis";
           span.style.whiteSpace = "nowrap";
