@@ -14,14 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let currentEditData = null;
 
-  // จัดการระบบเปลี่ยนภาษา
   if (langSelect) {
-    chrome.storage.local.get(["preferred_lang"], (data) => {
-      if (data.preferred_lang) {
-        langSelect.value = data.preferred_lang;
-      }
-    });
-
     langSelect.addEventListener("change", (e) => {
       const selectedLang = e.target.value;
       chrome.storage.local.set({ preferred_lang: selectedLang }, () => {
@@ -30,13 +23,28 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function loadAllData() {
+  async function loadAllData() {
+    const noHistoryMsg = await getMsg("loadingText", "Loading...");
+    const addSiteBtnText = await getMsg(
+      "addSiteRuleBtn",
+      "+ Add Rule for this Site"
+    );
+    const thSelector = await getMsg("tableThSelector", "CSS Selector / Rule");
+    const thManage = await getMsg("tableThManage", "Management");
+    const editBtnText = await getMsg("editBtn", "Edit");
+    const deleteBtnText = await getMsg("deleteBtn", "Delete");
+    const confirmDelText = await getMsg(
+      "confirmDeleteText",
+      "Are you sure you want to delete this item?"
+    );
+    const websitePrefix = await getMsg("websitePrefix", "🌐 Website:");
+
     chrome.storage.local.get(null, (items) => {
       container.innerHTML = "";
-      const keys = Object.keys(items);
+      const keys = Object.keys(items).filter((k) => k !== "preferred_lang");
 
       if (keys.length === 0) {
-        container.innerHTML = `<p style="color: #666;" data-i18n="noHistoryText">${chrome.i18n.getMessage("noHistoryText") || "No blocking history on any website yet"}</p>`;
+        container.innerHTML = `<p style="color: #666;">${noHistoryMsg}</p>`;
         return;
       }
 
@@ -54,27 +62,27 @@ document.addEventListener("DOMContentLoaded", () => {
         link.href = `https://${hostname}`;
         link.target = "_blank";
         link.className = "site-link";
-        link.textContent = `🌐 Website: ${hostname} ↗`;
+        link.textContent = `${websitePrefix} ${hostname} ↗`;
         siteHeader.appendChild(link);
 
         const addSiteBtn = document.createElement("button");
-        addSiteBtn.textContent =
-          chrome.i18n.getMessage("addSiteRuleBtn") ||
-          "+ Add Rule for this Site";
+        addSiteBtn.textContent = addSiteBtnText;
         addSiteBtn.className = "btn-site-add";
-        addSiteBtn.addEventListener("click", () => {
+        addSiteBtn.addEventListener("click", async () => {
           currentEditData = { mode: "add-to-site", hostname };
-          modalTitle.textContent = (
-            chrome.i18n.getMessage("modalTitleAddSite") ||
+          const titleTemplate = await getMsg(
+            "modalTitleAddSite",
             "Add CSS Selector to website: $1"
-          ).replace("$1", hostname);
+          );
+          modalTitle.textContent = titleTemplate.replace("$1", hostname);
           hostnameRow.style.display = "block";
           hostnameInput.value = hostname;
           hostnameInput.readOnly = true;
           editInput.value = "";
-          previewBox.innerHTML =
-            chrome.i18n.getMessage("previewPlaceholder") ||
-            "Type selector to preview...";
+          previewBox.innerHTML = await getMsg(
+            "previewPlaceholder",
+            "Type selector to preview..."
+          );
           editModal.style.display = "flex";
           editInput.focus();
         });
@@ -83,10 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
         section.appendChild(siteHeader);
 
         const table = document.createElement("table");
-        const thCol1 =
-          chrome.i18n.getMessage("tableThSelector") || "CSS Selector / Rule";
-        const thCol2 = chrome.i18n.getMessage("tableThManage") || "Management";
-        table.innerHTML = `<tr><th>${thCol1}</th><th style="width: 140px; text-align:center;">${thCol2}</th></tr>`;
+        table.innerHTML = `<tr><th>${thSelector}</th><th style="width: 140px; text-align:center;">${thManage}</th></tr>`;
 
         selectors.forEach((sel, index) => {
           const tr = document.createElement("tr");
@@ -96,13 +101,14 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
 
           const editBtn = document.createElement("button");
-          editBtn.innerHTML =
-            "✏️ " + (chrome.i18n.getMessage("editBtn") || "Edit");
+          editBtn.innerHTML = `✏️ ${editBtnText}`;
           editBtn.className = "btn-edit";
-          editBtn.addEventListener("click", () => {
+          editBtn.addEventListener("click", async () => {
             currentEditData = { mode: "edit", hostname, index, selectors };
-            modalTitle.textContent =
-              chrome.i18n.getMessage("modalTitleEdit") || "Edit CSS Selector";
+            modalTitle.textContent = await getMsg(
+              "modalTitleEdit",
+              "Edit CSS Selector"
+            );
             hostnameRow.style.display = "block";
             hostnameInput.value = hostname;
             hostnameInput.readOnly = true;
@@ -113,16 +119,10 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           const delBtn = document.createElement("button");
-          delBtn.innerHTML =
-            "🗑️ " + (chrome.i18n.getMessage("deleteBtn") || "Delete");
+          delBtn.innerHTML = `🗑️ ${deleteBtnText}`;
           delBtn.className = "btn-del";
           delBtn.addEventListener("click", () => {
-            if (
-              confirm(
-                chrome.i18n.getMessage("confirmDeleteText") ||
-                  "Are you sure you want to delete this item?"
-              )
-            ) {
+            if (confirm(confirmDelText)) {
               selectors.splice(index, 1);
               if (selectors.length === 0) {
                 chrome.storage.local.remove(hostname, () => loadAllData());
@@ -146,27 +146,30 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  addNewRuleBtn.addEventListener("click", () => {
+  addNewRuleBtn.addEventListener("click", async () => {
     currentEditData = { mode: "add-new-site" };
-    modalTitle.textContent =
-      chrome.i18n.getMessage("modalTitleNewSite") ||
-      "Add New Website and CSS Selector";
+    modalTitle.textContent = await getMsg(
+      "modalTitleNewSite",
+      "Add New Website and CSS Selector"
+    );
     hostnameRow.style.display = "block";
     hostnameInput.value = "";
     hostnameInput.readOnly = false;
     editInput.value = "";
-    previewBox.innerHTML =
-      chrome.i18n.getMessage("previewPlaceholder") ||
-      "Type selector to preview...";
+    previewBox.innerHTML = await getMsg(
+      "previewPlaceholder",
+      "Type selector to preview..."
+    );
     editModal.style.display = "flex";
     hostnameInput.focus();
   });
 
   async function updatePreview(hostname, selector) {
     if (!hostname || !selector) return;
-    previewBox.innerHTML =
-      chrome.i18n.getMessage("loadingPreviewText") ||
-      "Searching information...";
+    previewBox.innerHTML = await getMsg(
+      "loadingPreviewText",
+      "Searching information..."
+    );
     try {
       const response = await fetch(`https://${hostname}`, { mode: "cors" });
       const htmlText = await response.text();
@@ -177,11 +180,15 @@ document.addEventListener("DOMContentLoaded", () => {
       previewBox.innerHTML = "";
 
       if (matches.length === 0) {
-        previewBox.innerHTML = `<span style="color: #666;" data-i18n="noTagFoundText">${chrome.i18n.getMessage("noTagFoundText") || "No tags found on homepage (can still save and use normally)"}</span>`;
+        const noTagMsg = await getMsg(
+          "noTagFoundText",
+          "No tags found on homepage (can still save and use normally)"
+        );
+        previewBox.innerHTML = `<span style="color: #666;">${noTagMsg}</span>`;
         return;
       }
 
-      matches.forEach((el, idx) => {
+      matches.forEach(async (el, idx) => {
         if (idx < 10) {
           const item = document.createElement("div");
           item.className = "preview-item";
@@ -199,8 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
           item.appendChild(textSpan);
 
           const excludeBtn = document.createElement("button");
-          excludeBtn.innerHTML =
-            "🛡️ " + (chrome.i18n.getMessage("excludeBtn") || "Exclude");
+          excludeBtn.innerHTML = `🛡️ ${await getMsg("excludeBtn", "Exclude")}`;
           excludeBtn.className = "btn-del";
           excludeBtn.style.marginLeft = "8px";
           excludeBtn.style.padding = "2px 6px";
@@ -224,7 +230,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     } catch (e) {
-      previewBox.innerHTML = `<span style="color: #1a73e8;" data-i18n="corsBypassText">${chrome.i18n.getMessage("corsBypassText") || "ℹ️ Live preview skipped (due to CORS policy), but you can save and use it normally."}</span>`;
+      const corsMsg = await getMsg(
+        "corsBypassText",
+        "ℹ️ Live preview skipped (due to CORS policy), but you can save and use it normally."
+      );
+      previewBox.innerHTML = `<span style="color: #1a73e8;">${corsMsg}</span>`;
     }
   }
 
@@ -240,14 +250,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  saveBtn.addEventListener("click", () => {
+  saveBtn.addEventListener("click", async () => {
     if (!currentEditData) return;
     const newVal = editInput.value.trim();
     if (newVal === "") {
-      alert(
-        chrome.i18n.getMessage("alertEmptySelector") ||
-          "Please enter a CSS Selector"
-      );
+      alert(await getMsg("alertEmptySelector", "Please enter a CSS Selector"));
       return;
     }
 
@@ -261,8 +268,10 @@ document.addEventListener("DOMContentLoaded", () => {
         .replace(/\/.*$/, "");
       if (!host) {
         alert(
-          chrome.i18n.getMessage("alertEmptyHostname") ||
+          await getMsg(
+            "alertEmptyHostname",
             "Please enter a valid website hostname"
+          )
         );
         return;
       }
@@ -313,15 +322,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     isMouseDownInside = false;
   });
-
-  if (editInput && previewBox) {
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        previewBox.style.height = `${entry.contentRect.height}px`;
-      }
-    });
-    observer.observe(editInput);
-  }
 
   loadAllData();
 });

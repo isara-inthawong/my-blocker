@@ -66,8 +66,29 @@ function createHighlightBox() {
   highlightBox.style.pointerEvents = "none";
   document.body.appendChild(highlightBox);
 }
+// content.js จะไม่สามารถเรียกใช้ getMsg จากไฟล์ i18n.js ได้โดยตรง เนื่องจาก Chrome ไม่อนุญาตให้ Content Script แชร์ฟังก์ชันข้ามไฟล์จาวาสคริปต์
+async function getMsg(key, fallback) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["preferred_lang"], async (data) => {
+      let lang =
+        data.preferred_lang ||
+        (chrome.i18n.getUILanguage().startsWith("th") ? "th" : "en");
+      try {
+        const response = await fetch(
+          chrome.runtime.getURL(`_locales/${lang}/messages.json`)
+        );
+        const messages = await response.json();
+        if (messages[key] && messages[key].message) {
+          resolve(messages[key].message);
+          return;
+        }
+      } catch (e) {}
+      resolve(fallback);
+    });
+  });
+}
 
-function createBanner() {
+async function createBanner() {
   let banner = document.getElementById("element-blocker-banner");
   if (!banner) {
     banner = document.createElement("div");
@@ -80,10 +101,11 @@ function createBanner() {
       align-items: center; gap: 10px;
     `;
 
-    const bannerText =
-      chrome.i18n.getMessage("pickerBannerText") ||
-      "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)";
-    const exitText = chrome.i18n.getMessage("exitBtnText") || "Exit";
+    const bannerText = await getMsg(
+      "pickerBannerText",
+      "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)"
+    );
+    const exitText = await getMsg("exitBtnText", "Exit");
 
     banner.innerHTML = `
       <span>${bannerText}</span>
@@ -160,10 +182,10 @@ document.addEventListener(
   true
 );
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   if (request.action === "start_picker") {
     isPicking = true;
-    const banner = createBanner();
+    const banner = await createBanner();
     banner.style.display = "flex";
     sendResponse({ status: "started" });
   } else if (request.action === "stop_picker") {

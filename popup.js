@@ -16,29 +16,75 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let editingIndex = null;
 
-  function loadList() {
-    chrome.storage.local.get([hostname], (result) => {
+  // แปลข้อความและ Tooltip ทั้งหมดใน popup.html ตามภาษาที่เลือก
+  async function applyTranslations() {
+    document.querySelector('[data-i18n="extName"]').textContent = await getMsg(
+      "extName",
+      "Simple Element Blocker"
+    );
+    document.getElementById("openTabBtn").title = await getMsg(
+      "settingsTitleTooltip",
+      "Open settings page"
+    );
+    document.getElementById("pickBtn").title = await getMsg(
+      "pickBtnTooltip",
+      "Click to select and hide element"
+    );
+    document.querySelector('[data-i18n="customSelectorLabel"]').textContent =
+      await getMsg("customSelectorLabel", "Custom Selector:");
+    customInput.placeholder = await getMsg(
+      "customInputPlaceholder",
+      "e.g. img[src$='.gif'] or div.ad-banner"
+    );
+    addCustomBtn.title = await getMsg("addBtnTooltip", "Add Custom Selector");
+    editHint.textContent = await getMsg(
+      "editHintText",
+      "💡 Click ✏️ on items below to edit"
+    );
+    document.querySelector('[data-i18n="hiddenListLabel"]').textContent =
+      await getMsg("hiddenListLabel", "Hidden items on this site:");
+    document.getElementById("resetBtn").title = await getMsg(
+      "resetBtnTooltip",
+      "Reset all for this site"
+    );
+  }
+
+  await applyTranslations();
+
+  async function loadList() {
+    chrome.storage.local.get([hostname], async (result) => {
       const items = result[hostname] || [];
       listEl.innerHTML = "";
       if (items.length === 0) {
-        listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${chrome.i18n.getMessage("noItemsText") || "No hidden items yet"}</li>`;
+        const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
+        listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;">${noItemsMsg}</li>`;
       } else {
+        const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
+        const deleteTooltip = await getMsg(
+          "deleteBtnTooltip",
+          "Delete this item"
+        );
+
         items.forEach((item, index) => {
           const li = document.createElement("li");
           const span = document.createElement("span");
           span.textContent = item;
           span.title = item;
 
-          const startEditing = () => {
+          const startEditing = async () => {
             customInput.value = item;
             editingIndex = index;
             addCustomBtn.innerHTML = "💾";
-            addCustomBtn.title =
-              chrome.i18n.getMessage("updateBtnTooltip") || "Update this item";
+            addCustomBtn.title = await getMsg(
+              "updateBtnTooltip",
+              "Update this item"
+            );
             addCustomBtn.className = "add-icon-btn warning";
-            editHint.textContent = (
-              chrome.i18n.getMessage("editingIndexText") || "💡 Editing item #"
-            ).replace("$1", index + 1);
+            const editingText = await getMsg(
+              "editingIndexText",
+              "💡 Editing item #"
+            );
+            editHint.textContent = editingText.replace("$1", index + 1);
             customInput.focus();
           };
 
@@ -49,8 +95,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           const editBtn = document.createElement("button");
           editBtn.innerHTML = "✏️";
-          editBtn.title =
-            chrome.i18n.getMessage("editBtnTooltip") || "Edit this item";
+          editBtn.title = editTooltip;
           editBtn.className = "icon-btn btn-edit";
           editBtn.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -59,8 +104,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           const delBtn = document.createElement("button");
           delBtn.innerHTML = "🗑️";
-          delBtn.title =
-            chrome.i18n.getMessage("deleteBtnTooltip") || "Delete this item";
+          delBtn.title = deleteTooltip;
           delBtn.className = "icon-btn btn-del";
           delBtn.addEventListener("click", (e) => {
             e.stopPropagation();
@@ -83,16 +127,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function resetEditingState() {
+  async function resetEditingState() {
     editingIndex = null;
     customInput.value = "";
     addCustomBtn.innerHTML = "➕";
-    addCustomBtn.title =
-      chrome.i18n.getMessage("addBtnTooltip") || "Add Custom Selector";
+    addCustomBtn.title = await getMsg("addBtnTooltip", "Add Custom Selector");
     addCustomBtn.className = "add-icon-btn";
-    editHint.textContent =
-      chrome.i18n.getMessage("editHintText") ||
-      "💡 Click ✏️ on items below to edit";
+    editHint.textContent = await getMsg(
+      "editHintText",
+      "💡 Click ✏️ on items below to edit"
+    );
   }
 
   loadList();
