@@ -83,12 +83,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         const siteHeader = document.createElement("div");
         siteHeader.className = "site-header";
 
+        // แยกโครงสร้างข้อความนำหน้าและลิงก์เว็บไซต์ออกจากกันเพื่อไม่ให้คลิกติดข้อความนำหน้า
+        const linkWrapper = document.createElement("div");
+        linkWrapper.style.display = "flex";
+        linkWrapper.style.alignItems = "center";
+        linkWrapper.style.gap = "6px";
+
+        const prefixSpan = document.createElement("span");
+        prefixSpan.innerHTML = `<b>${websitePrefix}</b>`;
+        linkWrapper.appendChild(prefixSpan);
+
         const link = document.createElement("a");
         link.href = `https://${hostname}`;
         link.target = "_blank";
         link.className = "site-link";
-        link.textContent = `${websitePrefix} ${hostname} ↗`;
-        siteHeader.appendChild(link);
+        link.textContent = `${hostname} ↗`;
+        linkWrapper.appendChild(link);
+
+        siteHeader.appendChild(linkWrapper);
 
         const addSiteBtn = document.createElement("button");
         addSiteBtn.textContent = addSiteBtnText;
