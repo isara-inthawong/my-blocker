@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const hostnameInput = document.getElementById("hostnameInput");
   const editInput = document.getElementById("editInput");
   const modalTitle = document.getElementById("modalTitle");
+  const previewBox = document.getElementById("previewBox");
 
   let allSavedItems = {};
   let currentPage = 1;
@@ -97,7 +98,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       linkContainer.style.gap = "6px";
 
       const prefixSpan = document.createElement("span");
-      prefixSpan.innerHTML = `<b>${websitePrefixText}</b>`;
+      prefixSpan.textContent = websitePrefixText;
       linkContainer.appendChild(prefixSpan);
 
       const link = document.createElement("a");
@@ -137,7 +138,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           editInput.value = "";
           editInput.style.height = "110px";
         }
-        const previewBox = document.getElementById("previewBox");
         if (previewBox) {
           previewBox.style.height = "110px";
           previewBox.textContent = await safeGetMsg(
@@ -211,7 +211,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             editInput.value = sel || "";
             editInput.style.height = "110px";
           }
-          const previewBox = document.getElementById("previewBox");
           if (previewBox) {
             previewBox.style.height = "110px";
             updatePreview();
@@ -349,7 +348,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function updatePreview() {
-    const previewBox = document.getElementById("previewBox");
     if (!previewBox) return;
 
     const selector = editInput ? editInput.value.trim() : "";
@@ -365,13 +363,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const corsText = await safeGetMsg(
       "corsBypassText",
-      "ℹ️ Live preview skipped (CORS policy), but it will still work normally."
+      "ℹ️ Live preview skipped (due to CORS policy), but you can save and use it normally."
     );
     previewBox.innerHTML = `
       <span style="color: #1a73e8; font-weight: bold;">ℹ️ CSS Selector Ready:</span><br>
-      <span style="color: #444; font-family: monospace; display: block; margin-top: 4px;">${selector}</span>
+      <span style="color: #444; font-family: monospace; display: block; margin-top: 4px; word-break: break-all;">${selector}</span>
       <span style="color: #666; font-size: 10px; display: block; margin-top: 6px;">${corsText}</span>
     `;
+  }
+
+  // ระบบดักจับการขยาย/ยดขนาด textarea เพื่อปรับ previewBox อัตโนมัติรวมถึงการลากขอบ (Resize)
+  if (editInput && previewBox) {
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        if (entry.target === editInput) {
+          previewBox.style.height = `${entry.target.offsetHeight}px`;
+        }
+      }
+    });
+    resizeObserver.observe(editInput);
   }
 
   if (addNewRuleBtn && editModal) {
@@ -383,7 +393,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         editInput.value = "";
         editInput.style.height = "110px";
       }
-      const previewBox = document.getElementById("previewBox");
       if (previewBox) {
         previewBox.style.height = "110px";
         previewBox.textContent = await safeGetMsg(
@@ -481,14 +490,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (editInput) {
     editInput.addEventListener("input", () => {
-      editInput.style.height = "auto";
-      editInput.style.height = editInput.scrollHeight + "px";
-
-      const previewBox = document.getElementById("previewBox");
-      if (previewBox) {
-        previewBox.style.height = editInput.style.height;
-      }
-
       updatePreview();
     });
   }
