@@ -43,6 +43,14 @@ async function localizePage() {
       }
     });
 
+    // ✨ เพิ่มส่วนนี้เข้าไป เพื่อรองรับการแปล Title / Tooltip (data-i18n-title)
+    document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (messages[key]) {
+        el.title = messages[key].message;
+      }
+    });
+
     const langSelect = document.getElementById("langSelect");
     if (langSelect) {
       langSelect.value = lang;

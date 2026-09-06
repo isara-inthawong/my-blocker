@@ -107,11 +107,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         originalIndex
       }));
 
+      // จัดการซ่อนหรือแสดงปุ่ม Reset ตามจำนวนรายการ
+      if (resetBtn) {
+        if (itemsWithIndex.length === 0) {
+          resetBtn.style.display = "none";
+        } else {
+          resetBtn.style.display = ""; // หรือ "block" / "flex" ตามค่าเดิมใน CSS ของคุณ
+        }
+      }
+
       listEl.innerHTML = "";
       if (itemsWithIndex.length === 0) {
         const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
         listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
       } else {
+        // โค้ดส่วนสร้าง List items ปกติ...
         const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
         const deleteTooltip = await getMsg(
           "deleteBtnTooltip",

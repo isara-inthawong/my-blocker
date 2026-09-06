@@ -17,8 +17,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let currentPage = 1;
   const itemsPerPage = 5;
 
-  // ตัวแปรสำหรับเก็บสถานะการแก้ไข (ระบุเว็บไซต์และลำดับของ Selector ที่กำลังแก้)
-  let currentEditing = null; // รูปแบบ: { hostname, index } หรือ null ถือเป็นการสร้างใหม่
+  let currentEditing = null;
 
   async function safeGetMsg(key, defaultText) {
     if (typeof getMsg === "function") {
@@ -109,7 +108,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       addSiteRuleBtn.style.padding = "5px 10px";
       addSiteRuleBtn.style.fontSize = "12px";
       addSiteRuleBtn.addEventListener("click", async () => {
-        currentEditing = null; // โหมดสร้างกฎใหม่ให้เว็บไซต์นี้
+        currentEditing = null;
         if (hostnameRow) hostnameRow.style.display = "none";
         if (hostnameInput) hostnameInput.value = hostname;
         if (editInput) {
@@ -151,7 +150,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       section.appendChild(siteHeader);
 
       const table = document.createElement("table");
-      table.innerHTML = `<tr><th>${thSelectorText}</th><th style="width: 140px; text-align:center;">${thManageText}</th></tr>`;
+      table.style.width = "100%";
+      table.style.tableLayout = "fixed";
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th style="width: 80%;">${thSelectorText}</th>
+            <th style="width: 20%; text-align: center; vertical-align: middle;">${thManageText}</th>
+          </tr>
+        </thead>
+      `;
 
       selectors.forEach((selItem, index) => {
         const sel =
@@ -161,24 +169,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td style="word-break: break-all; font-family: monospace;">${sel || ""}</td>
-          <td style="text-align:center; white-space: nowrap;"></td>
+          <td style="word-break: break-all; word-wrap: break-word; font-family: monospace; vertical-align: middle; padding: 10px;">${sel || ""}</td>
+          <td style="text-align: center; vertical-align: middle; white-space: nowrap; padding: 10px;"></td>
         `;
 
         const actionTd = tr.querySelector("td:last-child");
-        actionTd.style.display = "flex";
-        actionTd.style.justifyContent = "center";
-        actionTd.style.gap = "5px";
-        actionTd.style.alignItems = "center";
 
-        // ปุ่มแก้ไข (Edit)
         const editBtn = document.createElement("button");
         editBtn.textContent = editBtnText;
         editBtn.className = "btn-add";
-        editBtn.style.padding = "4px 8px";
+        editBtn.style.padding = "5px 10px";
         editBtn.style.fontSize = "11px";
+        editBtn.style.marginRight = "5px";
         editBtn.addEventListener("click", async () => {
-          currentEditing = { hostname, index }; // กำหนดสถานะกำลังแก้ไขรายการนี้
+          currentEditing = { hostname, index };
           if (hostnameRow) hostnameRow.style.display = "none";
           if (hostnameInput) hostnameInput.value = hostname;
           if (editInput) {
@@ -201,11 +205,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         actionTd.appendChild(editBtn);
 
-        // ปุ่มลบ (Delete)
         const delBtn = document.createElement("button");
         delBtn.textContent = deleteBtnText;
         delBtn.className = "btn-del";
-        delBtn.style.padding = "4px 8px";
+        delBtn.style.padding = "5px 10px";
         delBtn.style.fontSize = "11px";
         delBtn.addEventListener("click", () => {
           if (confirm(confirmDelText)) {
@@ -351,7 +354,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (addNewRuleBtn && editModal) {
     addNewRuleBtn.addEventListener("click", async () => {
-      currentEditing = null; // สร้างใหม่ทั้งหมด
+      currentEditing = null;
       if (hostnameRow) hostnameRow.style.display = "flex";
       if (hostnameInput) hostnameInput.value = "";
       if (editInput) {
@@ -421,7 +424,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
 
         if (currentEditing && currentEditing.hostname === host) {
-          // กรณีแก้ไขรายการเดิมที่มีอยู่
           const index = currentEditing.index;
           if (index >= 0 && index < existingList.length) {
             existingList[index] = {
@@ -435,7 +437,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
           }
         } else {
-          // กรณีเพิ่มใหม่ หรือเปลี่ยนโฮสต์
           const exists = existingList.some(
             (item) => item.selector === selectorText
           );
@@ -498,7 +499,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // ฟังเหตุการณ์เมื่อมีการเปลี่ยนแปลงข้อมูลใน Storage จากหน้าอื่น (เช่น Popup)
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local") {
       loadAllData();

@@ -92,6 +92,9 @@
   "pickBtnTooltip": {
     "message": "คลิกเพื่อเลือกและซ่อนองค์ประกอบบนหน้าเว็บ"
   },
+  "pickBtn": {
+    "message": "🎯 เลือกเพื่อซ่อน"
+  },
   "customSelectorLabel": {
     "message": "กำหนด CSS Selector เอง:"
   },
@@ -111,7 +114,10 @@
     "message": "ยังไม่มีรายการที่ซ่อนในเว็บไซต์นี้"
   },
   "resetBtnTooltip": {
-    "message": "รีเซ็ตและยกเลิกการซ่อนทั้งหมดสำหรับเว็บไซต์นี้"
+    "message": "รีเซ็ตการซ่อนทั้งหมดสำหรับเว็บไซต์นี้"
+  },
+  "resetBtn": {
+    "message": "🗑️ รีเซ็ตการซ่อนทั้งหมด"
   },
   "editBtnTooltip": {
     "message": "แก้ไขรายการนี้"
