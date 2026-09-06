@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
           `;
 
           const editBtn = document.createElement("button");
-          editBtn.textContent = "แก้ไข";
+          editBtn.innerHTML = "✏️ แก้ไข";
           editBtn.className = "btn-edit";
           editBtn.addEventListener("click", () => {
             currentEditData = { mode: "edit", hostname, index, selectors };
@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           const delBtn = document.createElement("button");
-          delBtn.textContent = "ลบ";
+          delBtn.innerHTML = "🗑️ ลบ";
           delBtn.className = "btn-del";
           delBtn.addEventListener("click", () => {
             if (confirm("ต้องการลบรายการนี้ใช่หรือไม่?")) {
@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // ปุ่มสำหรับกด "ยกเว้น" รายการนี้
           const excludeBtn = document.createElement("button");
-          excludeBtn.textContent = "ยกเว้น";
+          excludeBtn.innerHTML = "🛡️ ยกเว้น";
           excludeBtn.className = "btn-del";
           excludeBtn.style.marginLeft = "8px";
           excludeBtn.style.padding = "2px 6px";

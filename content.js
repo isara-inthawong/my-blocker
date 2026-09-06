@@ -164,5 +164,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const banner = createBanner();
     banner.style.display = "flex";
     sendResponse({ status: "started" });
+  } else if (request.action === "stop_picker") {
+    stopPicking();
+    sendResponse({ status: "stopped" });
   }
 });

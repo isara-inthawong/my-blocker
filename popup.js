@@ -1,5 +1,9 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  // สั่งปิดโหมดเลือกทันทีที่เปิด popup ขึ้นมา เพื่อป้องกันโหมดค้างหรือบังหน้าจอ
+  chrome.tabs.sendMessage(tab.id, { action: "stop_picker" }).catch(() => {});
+
   const url = new URL(tab.url);
   const hostname = url.hostname;
 
@@ -19,7 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       listEl.innerHTML = "";
       if (items.length === 0) {
         listEl.innerHTML =
-          '<li style="justify-content:center; color:#999; cursor:default;">ยังไม่มีรายการที่ซ่อน</li>';
+          '<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;">ยังไม่มีรายการที่ซ่อน</li>';
       } else {
         items.forEach((item, index) => {
           const li = document.createElement("li");
@@ -31,8 +35,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           const startEditing = () => {
             customInput.value = item;
             editingIndex = index;
-            addCustomBtn.textContent = "อัปเดต";
-            addCustomBtn.className = "warning";
+            addCustomBtn.innerHTML = "💾";
+            addCustomBtn.title = "อัปเดตรายการนี้";
+            addCustomBtn.className = "add-icon-btn warning";
             editHint.textContent = `💡 กำลังแก้รายการที่ #${index + 1}`;
             customInput.focus();
           };
@@ -42,19 +47,21 @@ document.addEventListener("DOMContentLoaded", async () => {
           const btnGroup = document.createElement("div");
           btnGroup.className = "btn-group";
 
-          // 1. เพิ่มปุ่มแก้ไข (สีเหลือง)
+          // 1. ปุ่มแก้ไข (Icon พร้อม Tooltip)
           const editBtn = document.createElement("button");
-          editBtn.textContent = "แก้ไข";
-          editBtn.className = "btn-edit warning";
+          editBtn.innerHTML = "✏️";
+          editBtn.title = "แก้ไขรายการนี้";
+          editBtn.className = "icon-btn btn-edit";
           editBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             startEditing();
           });
 
-          // 2. ปุ่มลบ (สีแดง)
+          // 2. ปุ่มลบ (Icon พร้อม Tooltip)
           const delBtn = document.createElement("button");
-          delBtn.textContent = "ลบ";
-          delBtn.className = "btn-del";
+          delBtn.innerHTML = "🗑️";
+          delBtn.title = "ลบรายการนี้";
+          delBtn.className = "icon-btn btn-del";
           delBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             items.splice(index, 1);
@@ -79,9 +86,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   function resetEditingState() {
     editingIndex = null;
     customInput.value = "";
-    addCustomBtn.textContent = "เพิ่ม";
-    addCustomBtn.className = "";
-    editHint.textContent = "💡 คลิกรายการด้านล่างเพื่อแก้ไข";
+    addCustomBtn.innerHTML = "➕";
+    addCustomBtn.title = "เพิ่ม Custom Selector";
+    addCustomBtn.className = "add-icon-btn";
+    editHint.textContent = "💡 คลิก ✏️ รายการด้านล่างเพื่อแก้ไข";
   }
 
   loadList();

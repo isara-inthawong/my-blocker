@@ -3,150 +3,255 @@
 <head>
   <meta charset="utf-8">
   <style>
+    :root {
+      --primary: #1a73e8;
+      --primary-hover: #1557b0;
+      --secondary: #5f6368;
+      --secondary-hover: #484c50;
+      --danger: #d93025;
+      --danger-hover: #b31412;
+      --warning: #f9ab00;
+      --warning-hover: #e09d00;
+      --bg-color: #f8f9fa;
+      --border-color: #dadce0;
+      --text-main: #202124;
+      --text-muted: #5f6368;
+    }
+
     body {
-      width: 270px;
-      font-family: sans-serif;
+      width: 260px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       padding: 12px;
       margin: 0;
+      background-color: #ffffff;
+      color: var(--text-main);
+      box-sizing: border-box;
     }
+
+    .header-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+    }
+
     h3 {
-      font-size: 14px;
-      margin-top: 0;
-      color: #333;
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    button {
+
+    /* ปุ่มรูปเฟืองมุมขวาบน */
+    .icon-setting-btn {
+      background: none;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+    .icon-setting-btn:hover {
+      background-color: #f1f3f4;
+    }
+
+    /* ปุ่มหลักแบบไอคอนเด่น */
+    .hero-btn {
       width: 100%;
-      padding: 7px;
+      height: 42px;
       margin-bottom: 8px;
-      background-color: #1a73e8;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: background-color 0.2s, box-shadow 0.2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .hero-btn:hover {
+      background-color: var(--primary-hover);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .hero-btn.danger {
+      background-color: var(--danger);
+    }
+    .hero-btn.danger:hover {
+      background-color: var(--danger-hover);
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin: 8px 0 4px 0;
+    }
+
+    .custom-box {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .custom-box input {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 11px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .custom-box input:focus {
+      border-color: var(--primary);
+    }
+
+    /* ปุ่มเพิ่มแบบไอคอน */
+    .add-icon-btn {
+      width: 32px;
+      height: 29px;
+      margin-bottom: 0;
+      background-color: var(--primary);
       color: white;
       border: none;
       border-radius: 4px;
+      font-size: 13px;
       cursor: pointer;
-      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
     }
-    button:hover {
-      background-color: #1557b0;
+    .add-icon-btn:hover {
+      background-color: var(--primary-hover);
     }
-    .secondary {
-      background-color: #5f6368;
-    }
-    .secondary:hover {
-      background-color: #484c50;
-    }
-    .danger {
-      background-color: #d93025;
-    }
-    .danger:hover {
-      background-color: #b31412;
-    }
-    .warning {
-      background-color: #f9ab00;
+    .add-icon-btn.warning {
+      background-color: var(--warning);
       color: #202124;
     }
-    .warning:hover {
-      background-color: #e09d00;
+    .add-icon-btn.warning:hover {
+      background-color: #ffc107;
     }
-    .custom-box {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 4px;
-    }
-    .custom-box input {
-      flex: 1;
-      padding: 5px;
-      font-size: 11px;
-      border: 1px solid #ccc;
-      border-radius: 3px;
-    }
-    .custom-box button {
-      width: auto;
-      margin-bottom: 0;
-      padding: 5px 10px;
-    }
+
     .hint {
       font-size: 10px;
-      color: #888;
+      color: #80868b;
       margin-bottom: 8px;
     }
+
     ul {
       max-height: 110px;
       overflow-y: auto;
       padding-left: 0;
       list-style: none;
       font-size: 11px;
-      color: #555;
-      margin: 5px 0;
-      border: 1px solid #eee;
-      padding: 5px;
-      border-radius: 4px;
+      color: #3c4043;
+      margin: 4px 0 8px 0;
+      border: 1px solid var(--border-color);
+      padding: 4px;
+      border-radius: 6px;
+      background-color: var(--bg-color);
     }
+
     li {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 4px;
-      padding: 2px 4px;
-      border-radius: 3px;
+      margin-bottom: 3px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      background-color: #ffffff;
+      border: 1px solid #f1f3f4;
     }
     li:hover {
-      background-color: #f1f3f4;
+      background-color: #f8f9fa;
+      border-color: #e8eaed;
     }
+
     li span {
       flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      margin-right: 5px;
+      margin-right: 6px;
       cursor: pointer;
     }
+
     .btn-group {
       display: flex;
-      gap: 3px;
+      gap: 4px;
     }
-    li button {
-      width: auto;
-      padding: 2px 5px;
+
+    .icon-btn {
+      width: 22px;
+      height: 22px;
+      padding: 0;
       margin-bottom: 0;
-      font-size: 10px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      transition: background-color 0.2s;
     }
+
     .btn-edit {
-      background-color: #f9ab00;
-      color: #202124;
+      background-color: #fef7e0;
+      color: #b06000;
     }
     .btn-edit:hover {
-      background-color: #e09d00;
+      background-color: #fce8b2;
     }
+
     .btn-del {
-      background-color: #d93025;
+      background-color: #fce8e6;
+      color: var(--danger);
     }
     .btn-del:hover {
-      background-color: #b31412;
-    }
-    p {
-      font-size: 11px;
-      color: #666;
-      margin: 5px 0;
+      background-color: #fad2cf;
     }
   </style>
 </head>
 <body>
-  <h3>Element Blocker Pro</h3>
-  <button id="pickBtn">🖱️ คลิกเพื่อเลือกซ่อนแท็ก</button>
-  <button id="openTabBtn" class="secondary">🗗 เปิดหน้าตั้งค่าเป็นแท็บใหม่</button>
+  <div class="header-container">
+    <h3>🛡️ Element Blocker Pro</h3>
+    <!-- ปุ่มตั้งค่ารูปเฟืองมุมขวาบน พร้อม Tooltip -->
+    <button id="openTabBtn" class="icon-setting-btn" title="เปิดหน้าตั้งค่าเป็นแท็บใหม่">⚙️</button>
+  </div>
+
+  <!-- ปุ่มเลือกซ่อนแท็ก แบบไอคอนใหญ่ พร้อม Tooltip -->
+  <button id="pickBtn" class="hero-btn" title="คลิกเพื่อเลือกซ่อนแท็ก">
+    🎯
+  </button>
   
-  <p>Custom Selector:</p>
+  <div class="section-label">Custom Selector:</div>
   <div class="custom-box">
     <input type="text" id="customInput" placeholder="เช่น img[src$='.gif'] หรือ div.ad-banner">
-    <!-- img[src*='example.com'] -->
-    <button id="addCustomBtn">เพิ่ม</button>
+    <!-- ปุ่มเพิ่ม แบบไอคอน พร้อม Tooltip -->
+    <button id="addCustomBtn" class="add-icon-btn" title="เพิ่ม Custom Selector">➕</button>
   </div>
-  <div class="hint" id="editHint">💡 คลิกรายการด้านล่างเพื่อแก้ไข</div>
+  <div class="hint" id="editHint">💡 คลิก ✏️ รายการด้านล่างเพื่อแก้ไข</div>
 
-  <p>รายการที่ซ่อนในเว็บนี้:</p>
+  <div class="section-label">รายการที่ซ่อนในเว็บนี้:</div>
   <ul id="hiddenList"></ul>
   
-  <button id="resetBtn" class="danger">🗑️ รีเซ็ตทั้งหมดของเว็บนี้</button>
+  <!-- ปุ่มรีเซ็ต แบบไอคอน พร้อม Tooltip -->
+  <button id="resetBtn" class="hero-btn danger" title="รีเซ็ตทั้งหมดของเว็บนี้">
+    🗑️
+  </button>
 
   <script src="popup.js"></script>
 </body>
