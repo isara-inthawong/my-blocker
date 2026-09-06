@@ -60,6 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const thManageText = await safeGetMsg("tableThManage", "Action");
     const deleteBtnText = await safeGetMsg("deleteBtn", "Delete");
     const editBtnText = await safeGetMsg("editBtn", "Edit");
+    const websitePrefixText = await safeGetMsg("websitePrefix", "🌐 Website:");
 
     let keys = Object.keys(items).filter((k) => k !== "preferred_lang");
 
@@ -90,12 +91,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       siteHeader.style.alignItems = "center";
       siteHeader.style.marginBottom = "10px";
 
+      const linkContainer = document.createElement("div");
+      linkContainer.style.display = "flex";
+      linkContainer.style.alignItems = "center";
+      linkContainer.style.gap = "6px";
+
+      const prefixSpan = document.createElement("span");
+      prefixSpan.innerHTML = `<b>${websitePrefixText}</b>`;
+      linkContainer.appendChild(prefixSpan);
+
       const link = document.createElement("a");
       link.href = `https://${hostname}`;
       link.target = "_blank";
-      link.className = "site-link";
-      link.textContent = `🌐 ${hostname} ↗`;
-      siteHeader.appendChild(link);
+      link.style.color = "#1a73e8";
+      link.style.textDecoration = "none";
+      link.style.fontWeight = "bold";
+      link.textContent = `${hostname} ↗`;
+      link.addEventListener(
+        "mouseover",
+        () => (link.style.textDecoration = "underline")
+      );
+      link.addEventListener(
+        "mouseout",
+        () => (link.style.textDecoration = "none")
+      );
+      linkContainer.appendChild(link);
+
+      siteHeader.appendChild(linkContainer);
 
       const actionGroup = document.createElement("div");
       actionGroup.style.display = "flex";
