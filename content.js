@@ -105,17 +105,14 @@ function createBanner() {
       .addEventListener("click", stopPicking);
   });
 }
-// อัปเดตภาษาของแบนเนอร์ทันทีเมื่อมีการเปลี่ยนภาษาในระบบขณะเปิดโหมดอยู่
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "local" && changes.preferred_lang && isPicking) {
-    createBanner();
-  }
-});
 
 document.addEventListener(
   "mouseover",
   (e) => {
     if (!isPicking) return;
+    // ป้องกันไม่ให้ไฮไลต์แบนเนอร์ของตัวเอง
+    if (e.target.closest("#element-blocker-banner")) return;
+
     e.stopPropagation();
     const rect = e.target.getBoundingClientRect();
     createHighlightBox();
@@ -131,6 +128,9 @@ document.addEventListener(
   "click",
   (e) => {
     if (!isPicking) return;
+    // ป้องกันไม่ให้คลิกเลือกหรือซ่อนแบนเนอร์ของตัวเอง
+    if (e.target.closest("#element-blocker-banner")) return;
+
     e.preventDefault();
     e.stopPropagation();
 
@@ -182,5 +182,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "stop_picker") {
     stopPicking();
     sendResponse({ status: "stopped" });
+  }
+});
+
+// อัปเดตภาษาของแบนเนอร์ทันทีเมื่อมีการเปลี่ยนภาษาในระบบขณะเปิดโหมดอยู่
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local" && changes.preferred_lang && isPicking) {
+    createBanner();
   }
 });
