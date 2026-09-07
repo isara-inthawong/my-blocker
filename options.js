@@ -118,6 +118,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let keys = Object.keys(items).filter((k) => k !== "preferred_lang");
 
+    keys.sort((a, b) => {
+      let selectorsA = cleanItemsData(items[a]);
+      let selectorsB = cleanItemsData(items[b]);
+
+      let latestA = selectorsA.length > 0 ? selectorsA[0].timestamp : 0;
+      let latestB = selectorsB.length > 0 ? selectorsB[0].timestamp : 0;
+
+      return latestB - latestA;
+    });
+
     if (keys.length === 0) {
       container.innerHTML = `<p style="color: #666; text-align: center; padding: 20px;">${noHistoryMsg}</p>`;
       return;
