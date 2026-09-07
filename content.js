@@ -31,7 +31,7 @@ function getCssSelector(el) {
 
 const hostname = window.location.hostname.toLowerCase();
 
-// ฟังก์ชันสำหรับตรวจจับและซ่อนโฆษณาอัตโนมัติ (ป้องกันการบันทึกซ้ำซ้อน)
+// ฟังก์ชันสำหรับตรวจจับและซ่อนโฆษณาอัตโนมัติ (เพิ่มการเช็ก disabledSelectors)
 function autoDetectAndHideAds() {
   try {
     chrome.storage.local.get(
@@ -65,7 +65,7 @@ function autoDetectAndHideAds() {
             const selector = getCssSelector(el);
             if (!selector) return;
 
-            // ถ้า Selector นี้เคยถูกผู้ใช้กดลบออกจาก Auto ให้ข้ามการซ่อน
+            // 1. เช็กว่า Selector นี้เคยถูกผู้ใช้กดลบออกจาก Auto หรือไม่
             if (disabledSelectors.includes(selector)) return;
 
             const matchedElements =
@@ -73,16 +73,20 @@ function autoDetectAndHideAds() {
               document.querySelectorAll(selector);
             if (matchedElements.length === 0 && !el.matches(selector)) return;
 
+            // 2. เช็กว่าโครงสร้างหลัก (Base Selector) เคยถูกบล็อกหรือผู้ใช้กดลบไปแล้วหรือยัง เพื่อป้องกันการสร้างใหม่แบบสุ่มสี่สุ่มห้า
+            const baseSelector = selector.split(":nth-of-type")[0];
+            const isBaseDisabled = disabledSelectors.some(
+              (ds) => ds.split(":nth-of-type")[0] === baseSelector
+            );
+            if (isBaseDisabled) return;
+
             el.style.setProperty("display", "none", "important");
             el.setAttribute("data-element-blocker-hidden", "true");
             el.setAttribute("data-element-blocker-selector", selector);
 
-            // ป้องกันการบันทึกซ้ำ: เช็กทั้งแบบตรงกันเป๊ะ และเช็กโครงสร้างหลัก (ตัด :nth-of-type ออกเพื่อเทียบเคียง)
-            const baseSelector = selector.split(":nth-of-type")[0];
             const exists = hiddenList.some((item) => {
               const itemSel = typeof item === "object" ? item.selector : item;
               if (itemSel === selector) return true;
-              // ป้องกันไม่ให้บันทึกซ้ำถ้าโครงสร้างหลักเหมือนกันและเป็น auto เหมือนกัน
               if (
                 item.isAuto &&
                 itemSel.split(":nth-of-type")[0] === baseSelector
@@ -96,7 +100,7 @@ function autoDetectAndHideAds() {
               hiddenList.push({
                 selector: selector,
                 timestamp: Date.now(),
-                isAuto: true // ระบุว่าเป็นรายการที่ระบบทำให้อัตโนมัติ
+                isAuto: true
               });
               storageUpdated = true;
             }
@@ -115,112 +119,119 @@ function applySavedHiddenElements() {
   if (!chrome.runtime?.id) return;
 
   try {
-    chrome.storage.local.get(["disabled_auto_hosts", hostname], (result) => {
-      if (chrome.runtime.lastError) return;
+    chrome.storage.local.get(
+      ["disabled_auto_hosts", hostname, "disabled_auto_selectors"],
+      (result) => {
+        if (chrome.runtime.lastError) return;
 
-      const disabledHosts = result.disabled_auto_hosts || [];
-      const isAutoDisabled = disabledHosts.includes(hostname);
-      const hiddenList = result[hostname] || [];
+        const disabledHosts = result.disabled_auto_hosts || [];
+        const isAutoDisabled = disabledHosts.includes(hostname);
+        const hiddenList = result[hostname] || [];
+        const disabledSelectors = result.disabled_auto_selectors || [];
 
-      const activeSelectors = new Set();
-      let storageUpdated = false;
+        const activeSelectors = new Set();
+        let storageUpdated = false;
 
-      // 1. นำ Selector ที่เคยบันทึกไว้มาคัดกรองตามสถานะ Auto
-      hiddenList.forEach((item) => {
-        const selector =
-          item && typeof item === "object" ? item.selector : item;
-        const isAutoItem =
-          item && typeof item === "object" ? item.isAuto : false;
+        // 1. นำ Selector ที่เคยบันทึกไว้มาคัดกรองตามสถานะ Auto
+        hiddenList.forEach((item) => {
+          const selector =
+            item && typeof item === "object" ? item.selector : item;
+          const isAutoItem =
+            item && typeof item === "object" ? item.isAuto : false;
 
-        if (selector && typeof selector === "string") {
-          // ถ้าปิด Auto อยู่ และไอเทมนี้เป็น Auto ให้ข้ามการเพิ่มเข้า activeSelectors
-          if (isAutoDisabled && isAutoItem) {
-            return;
-          }
-          activeSelectors.add(selector);
-        }
-      });
-
-      // 2. ตรวจสอบกฎจาก DEFAULT_AUTO_PICK_RULES (จะทำงานก็ต่อเมื่อไม่ได้ปิด Auto เท่านั้น)
-      if (!isAutoDisabled && typeof DEFAULT_AUTO_PICK_RULES !== "undefined") {
-        DEFAULT_AUTO_PICK_RULES.forEach((rule) => {
-          if (rule && typeof rule === "string") {
-            try {
-              const matchedElements = document.querySelectorAll(rule);
-              if (matchedElements.length > 0) {
-                activeSelectors.add(rule);
-
-                const baseRule = rule.split(":nth-of-type")[0];
-                const exists = hiddenList.some((item) => {
-                  const itemSel =
-                    typeof item === "object" ? item.selector : item;
-                  if (itemSel === rule) return true;
-                  if (
-                    item.isAuto &&
-                    itemSel.split(":nth-of-type")[0] === baseRule
-                  ) {
-                    return true;
-                  }
-                  return false;
-                });
-
-                if (!exists) {
-                  hiddenList.push({
-                    selector: rule,
-                    timestamp: Date.now(),
-                    isAuto: true
-                  });
-                  storageUpdated = true;
-                }
-              }
-            } catch (e) {}
+          if (selector && typeof selector === "string") {
+            // ถ้าปิด Auto อยู่ หรือ Selector นี้อยู่ในรายการที่ถูกผู้ใช้บล็อกไม่ให้ Auto ให้ข้าม
+            if (
+              (isAutoDisabled && isAutoItem) ||
+              disabledSelectors.includes(selector)
+            ) {
+              return;
+            }
+            activeSelectors.add(selector);
           }
         });
-      }
 
-      const previouslyHiddenElements = document.querySelectorAll(
-        '[data-element-blocker-hidden="true"]'
-      );
+        // 2. ตรวจสอบกฎจาก DEFAULT_AUTO_PICK_RULES (ต้องเช็ก disabledSelectors ด้วยเช่นกัน)
+        if (!isAutoDisabled && typeof DEFAULT_AUTO_PICK_RULES !== "undefined") {
+          DEFAULT_AUTO_PICK_RULES.forEach((rule) => {
+            if (rule && typeof rule === "string") {
+              try {
+                // ถ้ากฎนี้ถูกผู้ใช้กดลบไปแล้ว ให้ข้ามการบังคับใช้ทันที
+                if (disabledSelectors.includes(rule)) return;
 
-      // คืนค่าแสดงผลให้กับ Element ที่ไม่ได้อยู่ใน activeSelectors แล้ว (เช่น โดนกรองออกเพราะปิด Auto)
-      previouslyHiddenElements.forEach((el) => {
-        const originalSelector = el.getAttribute(
-          "data-element-blocker-selector"
-        );
-        if (
-          !activeSelectors.has(originalSelector) &&
-          originalSelector !== "auto-detected-ad"
-        ) {
-          el.style.removeProperty("display");
-          el.removeAttribute("data-element-blocker-hidden");
-          el.removeAttribute("data-element-blocker-selector");
+                const matchedElements = document.querySelectorAll(rule);
+                if (matchedElements.length > 0) {
+                  activeSelectors.add(rule);
 
-          if (el.getAttribute("style") === "") {
-            el.removeAttribute("style");
-          }
-        }
-      });
+                  const baseRule = rule.split(":nth-of-type")[0];
+                  const exists = hiddenList.some((item) => {
+                    const itemSel =
+                      typeof item === "object" ? item.selector : item;
+                    if (itemSel === rule) return true;
+                    if (
+                      item.isAuto &&
+                      itemSel.split(":nth-of-type")[0] === baseRule
+                    ) {
+                      return true;
+                    }
+                    return false;
+                  });
 
-      // ซ่อนตาม Selector ทั้งหมดที่ใช้งานอยู่จริงในปัจจุบัน
-      activeSelectors.forEach((selector) => {
-        try {
-          document.querySelectorAll(selector).forEach((el) => {
-            el.style.setProperty("display", "none", "important");
-            el.setAttribute("data-element-blocker-hidden", "true");
-            el.setAttribute("data-element-blocker-selector", selector);
+                  if (!exists) {
+                    hiddenList.push({
+                      selector: rule,
+                      timestamp: Date.now(),
+                      isAuto: true
+                    });
+                    storageUpdated = true;
+                  }
+                }
+              } catch (e) {}
+            }
           });
-        } catch (e) {}
-      });
+        }
 
-      if (storageUpdated) {
-        chrome.storage.local.set({ [hostname]: hiddenList });
-      }
+        const previouslyHiddenElements = document.querySelectorAll(
+          '[data-element-blocker-hidden="true"]'
+        );
 
-      // ฟังก์ชันสแกนหาโฆษณาอัตโนมัติรอบตัว จะทำงานต่อเมื่อเปิด Auto ไว้เท่านั้น
-      if (!isAutoDisabled) {
-        autoDetectAndHideAds();
+        previouslyHiddenElements.forEach((el) => {
+          const originalSelector = el.getAttribute(
+            "data-element-blocker-selector"
+          );
+          if (
+            !activeSelectors.has(originalSelector) &&
+            originalSelector !== "auto-detected-ad"
+          ) {
+            el.style.removeProperty("display");
+            el.removeAttribute("data-element-blocker-hidden");
+            el.removeAttribute("data-element-blocker-selector");
+
+            if (el.getAttribute("style") === "") {
+              el.removeAttribute("style");
+            }
+          }
+        });
+
+        activeSelectors.forEach((selector) => {
+          try {
+            document.querySelectorAll(selector).forEach((el) => {
+              el.style.setProperty("display", "none", "important");
+              el.setAttribute("data-element-blocker-hidden", "true");
+              el.setAttribute("data-element-blocker-selector", selector);
+            });
+          } catch (e) {}
+        });
+
+        if (storageUpdated) {
+          chrome.storage.local.set({ [hostname]: hiddenList });
+        }
+
+        if (!isAutoDisabled) {
+          autoDetectAndHideAds();
+        }
       }
-    });
+    );
   } catch (e) {}
 }
 

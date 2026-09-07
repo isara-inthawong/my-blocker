@@ -305,7 +305,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const startEditing = async () => {
               customInput.value = sel;
-              originalEditValue = sel; // บันทึกค่าตั้งต้นไว้เทียบ
+              originalEditValue = sel;
               editingIndex = originalIndex;
               addCustomBtn.innerHTML = "💾";
               addCustomBtn.title = await getMsg(
@@ -327,7 +327,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 editingText || "💡 Editing item $1"
               ).replace("$1", displayIndex + 1);
               customInput.focus();
-              updateAddButtonState(); // สั่งเช็คทันทีเพื่อให้ปุ่มปิดการใช้งานเพราะค่าซ้ำกับเดิม
+              updateAddButtonState();
             };
 
             badge.addEventListener("click", startEditing);
@@ -361,6 +361,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                   const targetItem = currentItems[originalIndex];
 
+                  // ถ้าเป็นรายการ Auto ให้เพิ่มเข้าไปใน disabled_auto_selectors เมื่อถูกลบ
                   if (
                     targetItem &&
                     (typeof targetItem === "object" ? targetItem.isAuto : false)
@@ -470,6 +471,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       (result) => {
         let hiddenList = result[hostname] || [];
         let disabledSelectors = result.disabled_auto_selectors || [];
+
+        // ถ้ากำลังอยู่ในโหมดแก้ไข และตัวเดิมที่เป็น Auto ถูกแก้ไขเปลี่ยนแปลงไป
+        // ให้บันทึกตัวเดิมลงใน disabled_auto_selectors ด้วยเพื่อไม่ให้ Auto กลับมาอีก
+        if (
+          editingIndex !== null &&
+          editingIndex >= 0 &&
+          editingIndex < hiddenList.length
+        ) {
+          const oldItem = hiddenList[editingIndex];
+          if (
+            oldItem &&
+            (typeof oldItem === "object" ? oldItem.isAuto : false)
+          ) {
+            let oldSelector =
+              typeof oldItem === "string" ? oldItem : oldItem.selector;
+            if (oldSelector && !disabledSelectors.includes(oldSelector)) {
+              disabledSelectors.push(oldSelector);
+            }
+          }
+        }
 
         disabledSelectors = disabledSelectors.filter((s) => s !== val);
 
