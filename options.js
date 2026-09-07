@@ -20,6 +20,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let currentEditing = null;
 
+  // ฟังก์ชันส่งสัญญาณบอก content.js ให้รีเฟรชการซ่อน element ของ hostname นั้นๆ
+  function notifyContentScript(hostname) {
+    if (!hostname) return;
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach((tab) => {
+        if (tab.url && tab.url.toLowerCase().includes(hostname.toLowerCase())) {
+          chrome.tabs.sendMessage(
+            tab.id,
+            { action: "refreshHiddenElements" },
+            () => {
+              if (chrome.runtime.lastError) {
+                // ignore
+              }
+            }
+          );
+        }
+      });
+    });
+  }
+
   async function safeGetMsg(key, defaultText) {
     if (typeof getMsg === "function") {
       try {
@@ -188,7 +208,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       delSiteBtn.style.fontSize = "12px";
       delSiteBtn.addEventListener("click", () => {
         if (confirm(confirmDelAllText)) {
-          chrome.storage.local.remove(hostname);
+          chrome.storage.local.remove(hostname, () => {
+            notifyContentScript(hostname);
+          });
         }
       });
       actionGroup.appendChild(delSiteBtn);
@@ -256,9 +278,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         delBtn.addEventListener("click", () => {
           selectors.splice(index, 1);
           if (selectors.length === 0) {
-            chrome.storage.local.remove(hostname);
+            chrome.storage.local.remove(hostname, () => {
+              notifyContentScript(hostname);
+            });
           } else {
-            chrome.storage.local.set({ [hostname]: selectors });
+            chrome.storage.local.set({ [hostname]: selectors }, () => {
+              notifyContentScript(hostname);
+            });
           }
         });
         actionTd.appendChild(delBtn);
@@ -617,7 +643,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         editModal.style.display = "none";
         currentEditing = null;
-        chrome.storage.local.set({ [host]: finalCleanList });
+        chrome.storage.local.set({ [host]: finalCleanList }, () => {
+          notifyContentScript(host);
+        });
       });
     });
   }

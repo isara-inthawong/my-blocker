@@ -32,14 +32,21 @@ function getCssSelector(el) {
 const hostname = window.location.hostname;
 
 function applySavedHiddenElements() {
+  console.log("applySavedHiddenElements called for hostname:", hostname);
   chrome.storage.local.get([hostname], (result) => {
     const hiddenList = result[hostname] || [];
-    hiddenList.forEach((selector) => {
+    hiddenList.forEach((item) => {
+      // ดึงค่า selector จากโครงสร้าง Object โดยตรง
+      const selector = item && typeof item === "object" ? item.selector : item;
+      if (!selector || typeof selector !== "string") return;
+
       try {
         document.querySelectorAll(selector).forEach((el) => {
           el.style.setProperty("display", "none", "important");
         });
-      } catch (e) {}
+      } catch (e) {
+        console.error("Invalid selector:", selector, e);
+      }
     });
   });
 }
@@ -71,7 +78,6 @@ function createBanner() {
     banner.remove();
   }
 
-  // ดึงภาษาที่ผู้ใช้บันทึกไว้ หรือเช็คจากภาษาของเบราว์เซอร์
   chrome.storage.local.get(["preferred_lang"], (data) => {
     const lang =
       data.preferred_lang ||
@@ -110,7 +116,6 @@ document.addEventListener(
   "mouseover",
   (e) => {
     if (!isPicking) return;
-    // ป้องกันไม่ให้ไฮไลต์แบนเนอร์ของตัวเอง
     if (e.target.closest("#element-blocker-banner")) return;
 
     e.stopPropagation();
@@ -128,7 +133,6 @@ document.addEventListener(
   "click",
   (e) => {
     if (!isPicking) return;
-    // ป้องกันไม่ให้คลิกเลือกหรือซ่อนแบนเนอร์ของตัวเอง
     if (e.target.closest("#element-blocker-banner")) return;
 
     e.preventDefault();
@@ -140,12 +144,21 @@ document.addEventListener(
     if (selector) {
       chrome.storage.local.get([hostname], (result) => {
         let hiddenList = result[hostname] || [];
-        if (!hiddenList.includes(selector)) {
-          hiddenList.push(selector);
-          chrome.storage.local.set({ [hostname]: hiddenList }, () => {
-            applySavedHiddenElements();
-          });
+
+        // ตรวจสอบว่ามี selector นี้อยู่แล้วหรือยัง
+        const existingIndex = hiddenList.findIndex(
+          (item) => item.selector === selector
+        );
+
+        if (existingIndex !== -1) {
+          hiddenList[existingIndex].timestamp = Date.now();
+        } else {
+          hiddenList.push({ selector: selector, timestamp: Date.now() });
         }
+
+        chrome.storage.local.set({ [hostname]: hiddenList }, () => {
+          applySavedHiddenElements();
+        });
       });
     }
   },
@@ -174,6 +187,7 @@ document.addEventListener(
   true
 );
 
+// รวม Listener ทั้งหมดไว้ที่จุดเดียว
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_picker") {
     isPicking = true;
@@ -182,18 +196,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "stop_picker") {
     stopPicking();
     sendResponse({ status: "stopped" });
-  }
-});
-
-// อัปเดตภาษาของแบนเนอร์ทันทีเมื่อมีการเปลี่ยนภาษาในระบบขณะเปิดโหมดอยู่
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "local" && changes.preferred_lang && isPicking) {
-    createBanner();
-  }
-});
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "refreshHiddenElements") {
+  } else if (request.action === "refreshHiddenElements") {
     applySavedHiddenElements();
     sendResponse({ status: "refreshed" });
   } else if (request.action === "previewSelector") {
@@ -211,12 +214,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ elements: [] });
     }
     return true;
-  } else if (request.action === "start_picker") {
-    isPicking = true;
+  }
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local" && changes.preferred_lang && isPicking) {
     createBanner();
-    sendResponse({ status: "started" });
-  } else if (request.action === "stop_picker") {
-    stopPicking();
-    sendResponse({ status: "stopped" });
   }
 });
