@@ -347,20 +347,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 const targetItem = currentItems[originalIndex];
 
-                // ถ้าเป็นรายการ Auto ให้เพิ่มเข้าไปใน disabled_auto_selectors เมื่อถูกลบ
-                if (
-                  targetItem &&
-                  (typeof targetItem === "object" ? targetItem.isAuto : false)
-                ) {
+                if (targetItem) {
                   let targetSelector =
                     typeof targetItem === "string"
                       ? targetItem
                       : targetItem.selector;
+
+                  let isAutoVal =
+                    typeof targetItem === "object"
+                      ? !!targetItem.isAuto
+                      : false;
+
+                  // เช็กว่าถ้าเป็น isAuto หรือเนื้อหาตรงกับ DEFAULT_AUTO_PICK_RULES
+                  let matchesDefaultRule = false;
                   if (
-                    targetSelector &&
-                    !disabledSelectors.includes(targetSelector)
+                    typeof DEFAULT_AUTO_PICK_RULES !== "undefined" &&
+                    Array.isArray(DEFAULT_AUTO_PICK_RULES)
                   ) {
-                    disabledSelectors.push(targetSelector);
+                    matchesDefaultRule =
+                      DEFAULT_AUTO_PICK_RULES.includes(targetSelector);
+                  }
+
+                  if ((isAutoVal || matchesDefaultRule) && targetSelector) {
+                    if (!disabledSelectors.includes(targetSelector)) {
+                      disabledSelectors.push(targetSelector);
+                    }
                   }
                 }
 
@@ -477,7 +488,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         let disabledSelectors = result.disabled_auto_selectors || [];
 
         // ถ้ากำลังอยู่ในโหมดแก้ไข และตัวเดิมที่เป็น Auto ถูกแก้ไขเปลี่ยนแปลงไป
-        // ให้บันทึกตัวเดิมลงใน disabled_auto_selectors ด้วยเพื่อไม่ให้ Auto กลับมาอีก
         if (
           editingIndex !== null &&
           editingIndex >= 0 &&
@@ -490,12 +500,17 @@ document.addEventListener("DOMContentLoaded", async () => {
           ) {
             let oldSelector =
               typeof oldItem === "string" ? oldItem : oldItem.selector;
-            if (oldSelector && !disabledSelectors.includes(oldSelector)) {
-              disabledSelectors.push(oldSelector);
+
+            // เช็กว่าถ้า selector เปลี่ยนไปจากเดิม ค่อยเอาตัวเก่าใส่ disabled_auto_selectors
+            if (oldSelector && oldSelector !== val) {
+              if (!disabledSelectors.includes(oldSelector)) {
+                disabledSelectors.push(oldSelector);
+              }
             }
           }
         }
 
+        // ปลดล็อกทันทีถ้าค่าที่บันทึก/แก้ไขใหม่ไปตรงกับค่าที่เคยถูกบล็อกไว้
         disabledSelectors = disabledSelectors.filter((s) => s !== val);
 
         if (

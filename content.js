@@ -127,7 +127,19 @@ function applySavedHiddenElements() {
         const disabledHosts = result.disabled_auto_hosts || [];
         const isAutoDisabled = disabledHosts.includes(hostname);
         const hiddenList = result[hostname] || [];
-        const disabledSelectors = result.disabled_auto_selectors || [];
+        let disabledSelectors = result.disabled_auto_selectors || [];
+
+        // กรองเอาเฉพาะ Selector ที่ปัจจุบันไม่ได้ถูกบันทึกทับเป็นรายการ Custom (isAuto: false) ออกจากรายการบล็อก
+        const activeCustomSelectors = hiddenList
+          .filter(
+            (item) =>
+              typeof item === "object" && item !== null && item.isAuto === false
+          )
+          .map((item) => item.selector);
+
+        disabledSelectors = disabledSelectors.filter(
+          (ds) => !activeCustomSelectors.includes(ds)
+        );
 
         const activeSelectors = new Set();
         let storageUpdated = false;
