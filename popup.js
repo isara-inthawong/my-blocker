@@ -30,6 +30,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   const toggleAutoBtn = document.getElementById("toggleAutoBtn");
 
   let editingIndex = null;
+  let originalEditValue = ""; // ตัวแปรเก็บค่าเดิมตอนเริ่มกดแก้ไข
+
+  // ฟังก์ชันเช็คและจัดการสถานะ Disabled ของปุ่มเพิ่ม/บันทึก (+)
+  function updateAddButtonState() {
+    if (!customInput || !addCustomBtn) return;
+    const val = customInput.value.trim();
+    const isEmpty = val === "";
+
+    // ถ้าอยู่ในโหมดแก้ไข และค่าในช่อง input ยังเหมือนเดิมเป๊ะกับตอนกดดินสอ ให้ disable ด้วย
+    const isUnchangedDuringEdit =
+      editingIndex !== null && val === originalEditValue;
+
+    if (isEmpty || isUnchangedDuringEdit) {
+      addCustomBtn.disabled = true;
+      addCustomBtn.style.opacity = "0.5";
+      addCustomBtn.style.cursor = "not-allowed";
+    } else {
+      addCustomBtn.disabled = false;
+      addCustomBtn.style.opacity = "1";
+      addCustomBtn.style.cursor = "pointer";
+    }
+  }
+
+  // เรียกตรวจสอบสถานะปุ่มเริ่มต้น
+  updateAddButtonState();
+
+  // ดักจับการพิมพ์เพื่อเปิด/ปิดปุ่มแบบเรียลไทม์
+  if (customInput) {
+    customInput.addEventListener("input", updateAddButtonState);
+  }
 
   // ฟังก์ชันส่งสัญญาณให้ Content Script อัปเดตการซ่อน Element ทันที
   async function triggerTabRefresh() {
@@ -275,6 +305,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const startEditing = async () => {
               customInput.value = sel;
+              originalEditValue = sel; // บันทึกค่าตั้งต้นไว้เทียบ
               editingIndex = originalIndex;
               addCustomBtn.innerHTML = "💾";
               addCustomBtn.title = await getMsg(
@@ -296,6 +327,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 editingText || "💡 Editing item $1"
               ).replace("$1", displayIndex + 1);
               customInput.focus();
+              updateAddButtonState(); // สั่งเช็คทันทีเพื่อให้ปุ่มปิดการใช้งานเพราะค่าซ้ำกับเดิม
             };
 
             badge.addEventListener("click", startEditing);
@@ -387,6 +419,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function resetEditingState() {
     editingIndex = null;
+    originalEditValue = "";
     if (customInput) customInput.value = "";
     if (addCustomBtn) {
       addCustomBtn.innerHTML = "➕";
@@ -400,6 +433,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         "💡 Click ✏️ on items below to edit"
       );
     }
+    updateAddButtonState();
   }
 
   cancelEditBtn.addEventListener("click", () => {
@@ -427,7 +461,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const handleSaveOrAdd = () => {
-    if (!customInput) return;
+    if (!customInput || addCustomBtn.disabled) return;
     const val = customInput.value.trim();
     if (!val) return;
 
@@ -494,7 +528,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (customInput) {
     customInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !addCustomBtn.disabled) {
         handleSaveOrAdd();
       }
     });
