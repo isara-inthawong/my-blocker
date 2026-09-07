@@ -35,46 +35,54 @@ function applySavedHiddenElements() {
   // ป้องกัน Context หลุดเวลาอัปเดต Extension
   if (!chrome.runtime?.id) return;
 
-  chrome.storage.local.get([hostname], (result) => {
-    const hiddenList = result[hostname] || [];
+  try {
+    chrome.storage.local.get([hostname], (result) => {
+      if (chrome.runtime.lastError) return;
+      const hiddenList = result[hostname] || [];
 
-    const activeSelectors = new Set();
-    hiddenList.forEach((item) => {
-      const selector = item && typeof item === "object" ? item.selector : item;
-      if (selector && typeof selector === "string") {
-        activeSelectors.add(selector);
-      }
-    });
-
-    const previouslyHiddenElements = document.querySelectorAll(
-      '[data-element-blocker-hidden="true"]'
-    );
-
-    previouslyHiddenElements.forEach((el) => {
-      const originalSelector = el.getAttribute("data-element-blocker-selector");
-      if (!activeSelectors.has(originalSelector)) {
-        el.style.removeProperty("display");
-        el.removeAttribute("data-element-blocker-hidden");
-        el.removeAttribute("data-element-blocker-selector");
-
-        if (el.getAttribute("style") === "") {
-          el.removeAttribute("style");
+      const activeSelectors = new Set();
+      hiddenList.forEach((item) => {
+        const selector =
+          item && typeof item === "object" ? item.selector : item;
+        if (selector && typeof selector === "string") {
+          activeSelectors.add(selector);
         }
-      }
-    });
+      });
 
-    activeSelectors.forEach((selector) => {
-      try {
-        document.querySelectorAll(selector).forEach((el) => {
-          el.style.setProperty("display", "none", "important");
-          el.setAttribute("data-element-blocker-hidden", "true");
-          el.setAttribute("data-element-blocker-selector", selector);
-        });
-      } catch (e) {
-        // ป้องกัน Error พังทั้งระบบกรณีผู้ใช้กรอก Selector ผิดฟอร์ม
-      }
+      const previouslyHiddenElements = document.querySelectorAll(
+        '[data-element-blocker-hidden="true"]'
+      );
+
+      previouslyHiddenElements.forEach((el) => {
+        const originalSelector = el.getAttribute(
+          "data-element-blocker-selector"
+        );
+        if (!activeSelectors.has(originalSelector)) {
+          el.style.removeProperty("display");
+          el.removeAttribute("data-element-blocker-hidden");
+          el.removeAttribute("data-element-blocker-selector");
+
+          if (el.getAttribute("style") === "") {
+            el.removeAttribute("style");
+          }
+        }
+      });
+
+      activeSelectors.forEach((selector) => {
+        try {
+          document.querySelectorAll(selector).forEach((el) => {
+            el.style.setProperty("display", "none", "important");
+            el.setAttribute("data-element-blocker-hidden", "true");
+            el.setAttribute("data-element-blocker-selector", selector);
+          });
+        } catch (e) {
+          // ป้องกัน Error พังทั้งระบบกรณีผู้ใช้กรอก Selector ผิดฟอร์ม
+        }
+      });
     });
-  });
+  } catch (e) {
+    // ป้องกันกรณีบริบทถูกทำลายไปแล้วระหว่างกำลังทำงาน
+  }
 }
 
 applySavedHiddenElements();
@@ -106,38 +114,41 @@ function createBanner() {
 
   if (!chrome.runtime?.id) return;
 
-  chrome.storage.local.get(["preferred_lang"], (data) => {
-    const lang =
-      data.preferred_lang ||
-      (navigator.language.startsWith("th") ? "th" : "en");
+  try {
+    chrome.storage.local.get(["preferred_lang"], (data) => {
+      if (chrome.runtime.lastError) return;
+      const lang =
+        data.preferred_lang ||
+        (navigator.language.startsWith("th") ? "th" : "en");
 
-    const bannerText =
-      lang === "th"
-        ? "🔴 โหมดเลือก Element (คลิกซ้ายเพื่อซ่อน, กด ESC เพื่อออก)"
-        : "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)";
+      const bannerText =
+        lang === "th"
+          ? "🔴 โหมดเลือก Element (คลิกซ้ายเพื่อซ่อน, กด ESC เพื่อออก)"
+          : "🔴 Picker mode active (Left click to hide continuously, Press ESC to exit)";
 
-    const exitText = lang === "th" ? "ออก" : "Exit";
+      const exitText = lang === "th" ? "ออก" : "Exit";
 
-    banner = document.createElement("div");
-    banner.id = "element-blocker-banner";
-    banner.style.cssText = `
-      position: fixed; top: 10px; right: 10px; z-index: 999999;
-      background: #d93025; color: white; padding: 10px 15px;
-      font-family: sans-serif; font-size: 14px; border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex;
-      align-items: center; gap: 10px;
-    `;
+      banner = document.createElement("div");
+      banner.id = "element-blocker-banner";
+      banner.style.cssText = `
+        position: fixed; top: 10px; right: 10px; z-index: 999999;
+        background: #d93025; color: white; padding: 10px 15px;
+        font-family: sans-serif; font-size: 14px; border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex;
+        align-items: center; gap: 10px;
+      `;
 
-    banner.innerHTML = `
-      <span>${bannerText}</span>
-      <button id="exit-picker-btn" style="background: white; color: #d93025; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">${exitText}</button>
-    `;
-    document.body.appendChild(banner);
+      banner.innerHTML = `
+        <span>${bannerText}</span>
+        <button id="exit-picker-btn" style="background: white; color: #d93025; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-weight: bold;">${exitText}</button>
+      `;
+      document.body.appendChild(banner);
 
-    document
-      .getElementById("exit-picker-btn")
-      .addEventListener("click", stopPicking);
-  });
+      document
+        .getElementById("exit-picker-btn")
+        .addEventListener("click", stopPicking);
+    });
+  } catch (e) {}
 }
 
 document.addEventListener(
@@ -170,23 +181,28 @@ document.addEventListener(
     const selector = getCssSelector(target);
 
     if (selector && chrome.runtime?.id) {
-      chrome.storage.local.get([hostname], (result) => {
-        let hiddenList = result[hostname] || [];
+      try {
+        chrome.storage.local.get([hostname], (result) => {
+          if (chrome.runtime.lastError) return;
+          let hiddenList = result[hostname] || [];
 
-        const existingIndex = hiddenList.findIndex(
-          (item) => item.selector === selector
-        );
+          const existingIndex = hiddenList.findIndex(
+            (item) => item.selector === selector
+          );
 
-        if (existingIndex !== -1) {
-          hiddenList[existingIndex].timestamp = Date.now();
-        } else {
-          hiddenList.push({ selector: selector, timestamp: Date.now() });
-        }
+          if (existingIndex !== -1) {
+            hiddenList[existingIndex].timestamp = Date.now();
+          } else {
+            hiddenList.push({ selector: selector, timestamp: Date.now() });
+          }
 
-        chrome.storage.local.set({ [hostname]: hiddenList }, () => {
-          applySavedHiddenElements();
+          chrome.storage.local.set({ [hostname]: hiddenList }, () => {
+            if (!chrome.runtime.lastError) {
+              applySavedHiddenElements();
+            }
+          });
         });
-      });
+      } catch (e) {}
     }
   },
   true
@@ -215,6 +231,8 @@ document.addEventListener(
 );
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (!chrome.runtime?.id) return;
+
   if (request.action === "start_picker") {
     isPicking = true;
     createBanner();
@@ -244,6 +262,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (!chrome.runtime?.id) return;
   if (areaName === "local" && changes.preferred_lang && isPicking) {
     createBanner();
   }

@@ -20,6 +20,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let currentEditing = null;
 
+  // ดักจับปุ่ม ESC เพื่อปิด Modal
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && editModal && editModal.style.display === "flex") {
+      editModal.style.display = "none";
+      currentEditing = null;
+    }
+  });
+
   // ฟังก์ชันส่งสัญญาณบอก content.js ให้รีเฟรชการซ่อน element ของ hostname นั้นๆ
   function notifyContentScript(hostname) {
     if (!hostname) return;
