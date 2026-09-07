@@ -240,9 +240,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (modalTitle) {
             const modalTitleEdit = await safeGetMsg(
               "modalTitleEdit",
-              "Edit CSS Selector"
+              "Edit CSS Selector for website: $1"
             );
-            modalTitle.textContent = modalTitleEdit;
+            modalTitle.textContent = modalTitleEdit.replace("$1", hostname);
           }
           editModal.style.display = "flex";
         });
@@ -367,6 +367,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadAllData();
   }
 
+  // ฟังก์ชันป้องกัน XSS เบื้องต้นสำหรับการแสดงผล HTML Tag
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   async function updatePreview() {
     if (!previewBox) return;
 
@@ -378,18 +387,129 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!selector) {
       previewBox.textContent = placeholderMsg;
+      previewBox.style.display = "flex";
+      previewBox.style.alignItems = "center";
+      previewBox.style.justifyContent = "center";
+      previewBox.style.color = "#80868b";
+      previewBox.style.overflowY = "hidden";
       return;
     }
 
-    const corsText = await safeGetMsg(
-      "corsBypassText",
-      "ℹ️ Live preview skipped (due to CORS policy), but you can save and use it normally."
+    let targetHost = hostnameInput ? hostnameInput.value.trim() : "";
+    if (!targetHost && currentEditing) {
+      targetHost = currentEditing.hostname;
+    }
+    targetHost = targetHost
+      .replace(/^https?:\/\//, "")
+      .split("/")[0]
+      .toLowerCase();
+
+    const searchingText = await safeGetMsg(
+      "loadingPreviewText",
+      "Searching information..."
     );
+    previewBox.style.display = "block";
+    previewBox.style.overflowY = "hidden";
     previewBox.innerHTML = `
-      <span style="color: #1a73e8; font-weight: bold;">ℹ️ CSS Selector Ready:</span><br>
-      <span style="color: #444; font-family: monospace; display: block; margin-top: 4px; word-break: break-all;">${selector}</span>
-      <span style="color: #666; font-size: 10px; display: block; margin-top: 6px;">${corsText}</span>
+      <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #5f6368; font-size: 13px;">
+        <span>⏳ ${searchingText}</span>
+      </div>
     `;
+
+    chrome.tabs.query({}, (tabs) => {
+      const targetTab = tabs.find(
+        (tab) => tab.url && tab.url.toLowerCase().includes(targetHost)
+      );
+
+      if (!targetTab) {
+        previewBox.style.overflowY = "auto";
+        previewBox.innerHTML = `
+          <div style="padding: 10px; font-size: 12px; line-height: 1.5;">
+            <div style="color: #1a73e8; font-weight: bold; margin-bottom: 4px;">📌 CSS Selector:</div>
+            <div style="color: #202124; font-family: monospace; background: #f1f3f4; padding: 6px 8px; border-radius: 4px; word-break: break-all; margin-bottom: 8px; border: 1px solid #dfe1e5;">${escapeHtml(selector)}</div>
+            <div style="color: #d93025; font-size: 11px; background: #fce8e6; padding: 6px 8px; border-radius: 4px;">⚠️ เปิดหน้าเว็บ <b>${targetHost || "เป้าหมาย"}</b> ค้างไว้เพื่อดูตัวอย่างแบบ Real-time</div>
+          </div>
+        `;
+        return;
+      }
+
+      chrome.tabs.sendMessage(
+        targetTab.id,
+        { action: "previewSelector", selector: selector },
+        async (response) => {
+          if (
+            chrome.runtime.lastError ||
+            !response ||
+            !response.elements ||
+            response.elements.length === 0
+          ) {
+            const noFoundText = await safeGetMsg(
+              "noTagFoundText",
+              "No elements found matching this selector."
+            );
+            previewBox.style.overflowY = "hidden";
+            previewBox.innerHTML = `
+              <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #d93025; font-size: 12px; text-align: center; padding: 10px;">
+                <span>❌ ${noFoundText}</span>
+              </div>
+            `;
+            return;
+          }
+
+          const excludeBtnText = await safeGetMsg("excludeBtn", "Exclude");
+
+          let htmlList = response.elements
+            .map((el, idx) => {
+              return `
+                <div style="display: flex; align-items: stretch; background: #ffffff; margin-bottom: 6px; border-radius: 4px; border: 1px solid #e0e0e0; box-shadow: 0 1px 2px rgba(0,0,0,0.02); overflow: hidden;">
+                  <div style="flex: 1; font-family: monospace; font-size: 11px; padding: 6px 8px; word-break: break-all; color: #202124; display: flex; align-items: center;">${escapeHtml(el)}</div>
+                  <button class="exclude-item-btn" data-index="${idx}" style="background: #f1f3f4; border: none; border-left: 1px solid #e0e0e0; color: #d93025; font-size: 11px; font-weight: bold; padding: 0 10px; cursor: pointer; white-space: nowrap; transition: background 0.2s;">${excludeBtnText}</button>
+                </div>
+              `;
+            })
+            .join("");
+
+          const foundText = await safeGetMsg(
+            "previewFoundCount",
+            "Found $1 items:"
+          );
+          const titleText = foundText.replace("$1", response.elements.length);
+
+          previewBox.style.overflowY = "auto";
+          previewBox.innerHTML = `
+            <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; color: #1a73e8; display: flex; align-items: center; justify-content: space-between;">
+              <span>✨ ${titleText}</span>
+            </div>
+            <div>${htmlList}</div>
+          `;
+
+          // ผูก Event ให้ปุ่ม Exclude ของแต่ละรายการ
+          const excludeButtons =
+            previewBox.querySelectorAll(".exclude-item-btn");
+          excludeButtons.forEach((btn) => {
+            btn.addEventListener(
+              "mouseover",
+              () => (btn.style.background = "#fce8e6")
+            );
+            btn.addEventListener(
+              "mouseout",
+              () => (btn.style.background = "#f1f3f4")
+            );
+            btn.addEventListener("click", () => {
+              const idx = parseInt(btn.getAttribute("data-index"), 10);
+              const targetEl = response.elements[idx];
+              if (editInput && targetEl) {
+                let currentSel = editInput.value.trim();
+                if (!currentSel.includes(`:not(${targetEl})`)) {
+                  editInput.value = `${currentSel}:not([alt="${targetEl.match(/alt="([^"]+)"/)?.[1] || ""}"])`;
+                }
+                updatePreview();
+              }
+            });
+          });
+        }
+      );
+    });
   }
 
   if (editInput && previewBox) {

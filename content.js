@@ -191,3 +191,32 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     createBanner();
   }
 });
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "refreshHiddenElements") {
+    applySavedHiddenElements();
+    sendResponse({ status: "refreshed" });
+  } else if (request.action === "previewSelector") {
+    try {
+      const elements = document.querySelectorAll(request.selector);
+      const results = Array.from(elements)
+        .slice(0, 5)
+        .map((el) => {
+          return el.outerHTML.length > 100
+            ? el.outerHTML.substring(0, 100) + "..."
+            : el.outerHTML;
+        });
+      sendResponse({ elements: results });
+    } catch (e) {
+      sendResponse({ elements: [] });
+    }
+    return true;
+  } else if (request.action === "start_picker") {
+    isPicking = true;
+    createBanner();
+    sendResponse({ status: "started" });
+  } else if (request.action === "stop_picker") {
+    stopPicking();
+    sendResponse({ status: "stopped" });
+  }
+});

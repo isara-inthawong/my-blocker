@@ -21,7 +21,7 @@
     "message": "Loading..."
   },
   "modalTitleEdit": {
-    "message": "Edit CSS Selector"
+    "message": "Edit CSS Selector for website: $1"
   },
   "hostnameLabel": {
     "message": "Website (Hostname):"
@@ -153,5 +153,9 @@
   "confirmDeleteAllText": {
     "message": "Are you sure you want to delete all rules for this website?",
     "description": "Confirmation message before deleting all rules of a website"
+  },
+  "previewFoundCount": {
+    "message": "Found $1 items:",
+    "description": "Count header for preview matched elements"
   }
 }

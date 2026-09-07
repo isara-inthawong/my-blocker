@@ -21,7 +21,7 @@
     "message": "กำลังโหลด..."
   },
   "modalTitleEdit": {
-    "message": "แก้ไข CSS Selector"
+    "message": "แก้ไข CSS Selector สำหรับเว็บไซต์: $1"
   },
   "hostnameLabel": {
     "message": "เว็บไซต์ (Hostname):"
@@ -153,5 +153,9 @@
   "confirmDeleteAllText": {
     "message": "คุณแน่ใจหรือไม่ว่าต้องการลบกฎทั้งหมดของเว็บไซต์นี้?",
     "description": "Confirmation message before deleting all rules of a website"
+  },
+  "previewFoundCount": {
+    "message": "พบ $1 รายการ:",
+    "description": "Count header for preview matched elements"
   }
 }

@@ -28,6 +28,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let editingIndex = null;
 
+  // ฟังก์ชันส่งสัญญาณให้ Content Script อัปเดตการซ่อน Element ทันที
+  async function triggerTabRefresh() {
+    if (tab && tab.id && tab.url && tab.url.startsWith("http")) {
+      chrome.tabs
+        .sendMessage(tab.id, { action: "refreshHiddenElements" })
+        .catch(() => {});
+    }
+  }
+
   // จัดโครงสร้างให้ input และปุ่มอยู่ชิดกันแบบ Flexbox เพื่อประหยัดพื้นที่
   const inputParent = customInput.parentElement;
   if (inputParent && !inputParent.classList.contains("input-group")) {
@@ -112,7 +121,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (itemsWithIndex.length === 0) {
           resetBtn.style.display = "none";
         } else {
-          resetBtn.style.display = ""; // หรือ "block" / "flex" ตามค่าเดิมใน CSS ของคุณ
+          resetBtn.style.display = "";
         }
       }
 
@@ -121,7 +130,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
         listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
       } else {
-        // โค้ดส่วนสร้าง List items ปกติ...
         const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
         const deleteTooltip = await getMsg(
           "deleteBtnTooltip",
@@ -220,10 +228,12 @@ document.addEventListener("DOMContentLoaded", async () => {
               if (currentItems.length === 0) {
                 chrome.storage.local.remove(hostname, () => {
                   resetEditingState();
+                  triggerTabRefresh();
                 });
               } else {
                 chrome.storage.local.set({ [hostname]: currentItems }, () => {
                   resetEditingState();
+                  triggerTabRefresh();
                 });
               }
             });
@@ -308,6 +318,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       chrome.storage.local.set({ [hostname]: finalCleanList }, () => {
         resetEditingState();
+        triggerTabRefresh(); // สั่งอัปเดตหน้าเว็บทันทีหลังบันทึก
       });
     });
   };
@@ -328,6 +339,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     resetBtn.addEventListener("click", () => {
       chrome.storage.local.remove([hostname], () => {
         resetEditingState();
+        triggerTabRefresh(); // สั่งอัปเดตหน้าเว็บทันทีหลังรีเซ็ต
       });
     });
   }
