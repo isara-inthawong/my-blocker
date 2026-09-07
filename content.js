@@ -29,18 +29,32 @@ function getCssSelector(el) {
   return path.join(" > ");
 }
 
-const hostname = window.location.hostname;
+const hostname = window.location.hostname.toLowerCase();
 
 function applySavedHiddenElements() {
   // ป้องกัน Context หลุดเวลาอัปเดต Extension
   if (!chrome.runtime?.id) return;
 
   try {
-    chrome.storage.local.get([hostname], (result) => {
+    chrome.storage.local.get(["disabled_auto_hosts", hostname], (result) => {
       if (chrome.runtime.lastError) return;
+
+      const disabledHosts = result.disabled_auto_hosts || [];
+      const isAutoDisabled = disabledHosts.includes(hostname);
       const hiddenList = result[hostname] || [];
 
       const activeSelectors = new Set();
+
+      // ถ้าระบบ Auto Pick เปิดอยู่ ให้ดึงกฎ Default เข้ามาด้วย
+      if (!isAutoDisabled && typeof DEFAULT_AUTO_PICK_RULES !== "undefined") {
+        DEFAULT_AUTO_PICK_RULES.forEach((rule) => {
+          if (rule && typeof rule === "string") {
+            activeSelectors.add(rule);
+          }
+        });
+      }
+
+      // ดึงกฎที่ผู้ใช้บันทึกไว้หรือเพิ่มเอง
       hiddenList.forEach((item) => {
         const selector =
           item && typeof item === "object" ? item.selector : item;
@@ -277,7 +291,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (!chrome.runtime?.id) return;
-  if (areaName === "local" && changes.preferred_lang && isPicking) {
-    createBanner();
+  if (areaName === "local") {
+    if (changes.preferred_lang && isPicking) {
+      createBanner();
+    }
+    // ถ้ามีการเปลี่ยนค่า disabled_auto_hosts หรือข้อมูลใน hostname ให้รีเฟรชการซ่อน Element ทันที
+    if (changes.disabled_auto_hosts || changes[hostname]) {
+      applySavedHiddenElements();
+    }
   }
 });

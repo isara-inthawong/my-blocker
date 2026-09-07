@@ -37,8 +37,78 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // สร้าง UI สำหรับปุ่ม เปิด/ปิด Auto Pick ประจำเว็บไซต์นี้ (แทรกไว้ด้านบนสุดของ container หรือใต้หัวข้อ)
+  const container = document.body; // หรือเลือก element หลักที่ต้องการแทรก
+  const autoToggleContainer = document.createElement("div");
+  autoToggleContainer.style.cssText =
+    "margin: 8px 12px; padding: 6px 10px; background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;";
+
+  const autoStatusText = document.createElement("span");
+  autoStatusText.style.cssText =
+    "font-size: 11px; font-weight: 600; color: #333;";
+  autoStatusText.textContent = "🤖 Auto Pick เว็บนี้: กำลังโหลด...";
+
+  const toggleAutoBtn = document.createElement("button");
+  toggleAutoBtn.style.cssText =
+    "padding: 3px 8px; font-size: 10px; cursor: pointer; color: white; border: none; border-radius: 4px; font-weight: 600;";
+
+  autoToggleContainer.appendChild(autoStatusText);
+  autoToggleContainer.appendChild(toggleAutoBtn);
+
+  // แทรกไว้ใต้ส่วนหัว (เช่น ก่อนส่วนของ pickBtn หรือช่องกรอก)
+  const firstChildElement = container.firstElementChild;
+  if (firstChildElement) {
+    container.insertBefore(
+      autoToggleContainer,
+      firstChildElement.nextSibling || firstChildElement
+    );
+  } else {
+    container.appendChild(autoToggleContainer);
+  }
+
+  // โหลดและจัดการสถานะ Auto Pick ของเว็บไซต์นี้
+  chrome.storage.local.get(["disabled_auto_hosts"], (data) => {
+    let disabledHosts = data.disabled_auto_hosts || [];
+    let isDisabled = disabledHosts.includes(hostname);
+
+    updateAutoUI(isDisabled);
+
+    toggleAutoBtn.addEventListener("click", () => {
+      chrome.storage.local.get(["disabled_auto_hosts"], (latestData) => {
+        let currentDisabled = latestData.disabled_auto_hosts || [];
+        let currentlyDisabled = currentDisabled.includes(hostname);
+
+        if (currentlyDisabled) {
+          currentDisabled = currentDisabled.filter((h) => h !== hostname);
+        } else {
+          currentDisabled.push(hostname);
+        }
+
+        chrome.storage.local.set(
+          { disabled_auto_hosts: currentDisabled },
+          () => {
+            updateAutoUI(!currentlyDisabled);
+            triggerTabRefresh();
+          }
+        );
+      });
+    });
+  });
+
+  function updateAutoUI(isDisabled) {
+    if (isDisabled) {
+      autoStatusText.textContent = "🤖 Auto Pick เว็บนี้: ปิดอยู่";
+      toggleAutoBtn.textContent = "เปิด Auto";
+      toggleAutoBtn.style.background = "#1a73e8";
+    } else {
+      autoStatusText.textContent = "🤖 Auto Pick เว็บนี้: เปิดอยู่";
+      toggleAutoBtn.textContent = "ปิด Auto";
+      toggleAutoBtn.style.background = "#d93025";
+    }
+  }
+
   // จัดโครงสร้างให้ input และปุ่มอยู่ชิดกันแบบ Flexbox เพื่อประหยัดพื้นที่
-  const inputParent = customInput.parentElement;
+  const inputParent = customInput ? customInput.parentElement : null;
   if (inputParent && !inputParent.classList.contains("input-group")) {
     inputParent.style.display = "flex";
     inputParent.style.alignItems = "center";
@@ -53,7 +123,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   cancelEditBtn.className = "add-icon-btn";
   cancelEditBtn.style.display = "none";
   cancelEditBtn.style.backgroundColor = "#e4e6eb";
-  addCustomBtn.parentNode.insertBefore(cancelEditBtn, addCustomBtn.nextSibling);
+  if (addCustomBtn && addCustomBtn.parentNode) {
+    addCustomBtn.parentNode.insertBefore(
+      cancelEditBtn,
+      addCustomBtn.nextSibling
+    );
+  }
 
   // ดักฟังการเปลี่ยนภาษาหรือข้อมูลใน storage แบบเรียลไทม์
   chrome.storage.onChanged.addListener(async (changes, areaName) => {
@@ -125,142 +200,148 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
 
-      listEl.innerHTML = "";
-      if (itemsWithIndex.length === 0) {
-        const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
-        listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
-      } else {
-        const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
-        const deleteTooltip = await getMsg(
-          "deleteBtnTooltip",
-          "Delete this item"
-        );
+      if (listEl) {
+        listEl.innerHTML = "";
+        if (itemsWithIndex.length === 0) {
+          const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
+          listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
+        } else {
+          const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
+          const deleteTooltip = await getMsg(
+            "deleteBtnTooltip",
+            "Delete this item"
+          );
 
-        itemsWithIndex.forEach((itemObj, displayIndex) => {
-          const sel = itemObj.selector;
-          const originalIndex = itemObj.originalIndex;
+          itemsWithIndex.forEach((itemObj, displayIndex) => {
+            const sel = itemObj.selector;
+            const originalIndex = itemObj.originalIndex;
 
-          const li = document.createElement("li");
+            const li = document.createElement("li");
 
-          const textContainer = document.createElement("div");
-          textContainer.style.display = "flex";
-          textContainer.style.alignItems = "center";
-          textContainer.style.gap = "8px";
-          textContainer.style.flex = "1";
-          textContainer.style.overflow = "hidden";
-          textContainer.style.marginRight = "6px";
+            const textContainer = document.createElement("div");
+            textContainer.style.display = "flex";
+            textContainer.style.alignItems = "center";
+            textContainer.style.gap = "8px";
+            textContainer.style.flex = "1";
+            textContainer.style.overflow = "hidden";
+            textContainer.style.marginRight = "6px";
 
-          const badge = document.createElement("span");
-          badge.textContent = `#${displayIndex + 1}`;
-          badge.style.color = "#888";
-          badge.style.display = "inline-block";
-          badge.style.minWidth = "24px";
-          badge.style.fontWeight = "600";
-          badge.style.flexShrink = "0";
-          badge.style.flexGrow = "0";
-          badge.style.cursor = "pointer";
-          badge.style.whiteSpace = "nowrap";
-          badge.style.marginRight = "0";
+            const badge = document.createElement("span");
+            badge.textContent = `#${displayIndex + 1}`;
+            badge.style.color = "#888";
+            badge.style.display = "inline-block";
+            badge.style.minWidth = "24px";
+            badge.style.fontWeight = "600";
+            badge.style.flexShrink = "0";
+            badge.style.flexGrow = "0";
+            badge.style.cursor = "pointer";
+            badge.style.whiteSpace = "nowrap";
+            badge.style.marginRight = "0";
 
-          const span = document.createElement("span");
-          span.textContent = sel;
-          span.title = sel;
-          span.style.flex = "1";
-          span.style.minWidth = "0";
-          span.style.overflow = "hidden";
-          span.style.textOverflow = "ellipsis";
-          span.style.whiteSpace = "nowrap";
-          span.style.marginLeft = "0";
+            const span = document.createElement("span");
+            span.textContent = sel;
+            span.title = sel;
+            span.style.flex = "1";
+            span.style.minWidth = "0";
+            span.style.overflow = "hidden";
+            span.style.textOverflow = "ellipsis";
+            span.style.whiteSpace = "nowrap";
+            span.style.marginLeft = "0";
 
-          textContainer.appendChild(badge);
-          textContainer.appendChild(span);
+            textContainer.appendChild(badge);
+            textContainer.appendChild(span);
 
-          const startEditing = async () => {
-            customInput.value = sel;
-            editingIndex = originalIndex;
-            addCustomBtn.innerHTML = "💾";
-            addCustomBtn.title = await getMsg(
-              "updateBtnTooltip",
-              "Update this item"
-            );
-            addCustomBtn.className = "add-icon-btn warning";
-            cancelEditBtn.style.display = "inline-flex";
-            cancelEditBtn.title = await getMsg(
-              "cancelBtnTooltip",
-              "Cancel editing"
-            );
+            const startEditing = async () => {
+              customInput.value = sel;
+              editingIndex = originalIndex;
+              addCustomBtn.innerHTML = "💾";
+              addCustomBtn.title = await getMsg(
+                "updateBtnTooltip",
+                "Update this item"
+              );
+              addCustomBtn.className = "add-icon-btn warning";
+              cancelEditBtn.style.display = "inline-flex";
+              cancelEditBtn.title = await getMsg(
+                "cancelBtnTooltip",
+                "Cancel editing"
+              );
 
-            const editingText = await getMsg(
-              "editingIndexText",
-              "💡 Editing item $1"
-            );
-            editHint.textContent = (
-              editingText || "💡 Editing item $1"
-            ).replace("$1", displayIndex + 1);
-            customInput.focus();
-          };
+              const editingText = await getMsg(
+                "editingIndexText",
+                "💡 Editing item $1"
+              );
+              editHint.textContent = (
+                editingText || "💡 Editing item $1"
+              ).replace("$1", displayIndex + 1);
+              customInput.focus();
+            };
 
-          badge.addEventListener("click", startEditing);
-          span.addEventListener("click", startEditing);
+            badge.addEventListener("click", startEditing);
+            span.addEventListener("click", startEditing);
 
-          const btnGroup = document.createElement("div");
-          btnGroup.className = "btn-group";
+            const btnGroup = document.createElement("div");
+            btnGroup.className = "btn-group";
 
-          const editBtn = document.createElement("button");
-          editBtn.innerHTML = "✏️";
-          editBtn.title = editTooltip;
-          editBtn.className = "icon-btn btn-edit";
-          editBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            startEditing();
-          });
-
-          const delBtn = document.createElement("button");
-          delBtn.innerHTML = "🗑️";
-          delBtn.title = deleteTooltip;
-          delBtn.className = "icon-btn btn-del";
-          delBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            chrome.storage.local.get([hostname], (currentRes) => {
-              let currentItems = cleanItemsData(currentRes[hostname] || []);
-              currentItems.splice(originalIndex, 1);
-
-              if (currentItems.length === 0) {
-                chrome.storage.local.remove(hostname, () => {
-                  resetEditingState();
-                  triggerTabRefresh();
-                });
-              } else {
-                chrome.storage.local.set({ [hostname]: currentItems }, () => {
-                  resetEditingState();
-                  triggerTabRefresh();
-                });
-              }
+            const editBtn = document.createElement("button");
+            editBtn.innerHTML = "✏️";
+            editBtn.title = editTooltip;
+            editBtn.className = "icon-btn btn-edit";
+            editBtn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              startEditing();
             });
+
+            const delBtn = document.createElement("button");
+            delBtn.innerHTML = "🗑️";
+            delBtn.title = deleteTooltip;
+            delBtn.className = "icon-btn btn-del";
+            delBtn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              chrome.storage.local.get([hostname], (currentRes) => {
+                let currentItems = cleanItemsData(currentRes[hostname] || []);
+                currentItems.splice(originalIndex, 1);
+
+                if (currentItems.length === 0) {
+                  chrome.storage.local.remove(hostname, () => {
+                    resetEditingState();
+                    triggerTabRefresh();
+                  });
+                } else {
+                  chrome.storage.local.set({ [hostname]: currentItems }, () => {
+                    resetEditingState();
+                    triggerTabRefresh();
+                  });
+                }
+              });
+            });
+
+            btnGroup.appendChild(editBtn);
+            btnGroup.appendChild(delBtn);
+
+            li.appendChild(textContainer);
+            li.appendChild(btnGroup);
+            listEl.appendChild(li);
           });
-
-          btnGroup.appendChild(editBtn);
-          btnGroup.appendChild(delBtn);
-
-          li.appendChild(textContainer);
-          li.appendChild(btnGroup);
-          listEl.appendChild(li);
-        });
+        }
       }
     });
   }
 
   async function resetEditingState() {
     editingIndex = null;
-    customInput.value = "";
-    addCustomBtn.innerHTML = "➕";
-    addCustomBtn.title = await getMsg("addBtnTooltip", "Add Custom Selector");
-    addCustomBtn.className = "add-icon-btn";
+    if (customInput) customInput.value = "";
+    if (addCustomBtn) {
+      addCustomBtn.innerHTML = "➕";
+      addCustomBtn.title = await getMsg("addBtnTooltip", "Add Custom Selector");
+      addCustomBtn.className = "add-icon-btn";
+    }
     cancelEditBtn.style.display = "none";
-    editHint.textContent = await getMsg(
-      "editHintText",
-      "💡 Click ✏️ on items below to edit"
-    );
+    if (editHint) {
+      editHint.textContent = await getMsg(
+        "editHintText",
+        "💡 Click ✏️ on items below to edit"
+      );
+    }
   }
 
   cancelEditBtn.addEventListener("click", () => {
@@ -288,6 +369,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const handleSaveOrAdd = () => {
+    if (!customInput) return;
     const val = customInput.value.trim();
     if (!val) return;
 
