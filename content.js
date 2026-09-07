@@ -32,17 +32,45 @@ function getCssSelector(el) {
 const hostname = window.location.hostname;
 
 function applySavedHiddenElements() {
-  console.log("applySavedHiddenElements called for hostname:", hostname);
   chrome.storage.local.get([hostname], (result) => {
     const hiddenList = result[hostname] || [];
-    hiddenList.forEach((item) => {
-      // ดึงค่า selector จากโครงสร้าง Object โดยตรง
-      const selector = item && typeof item === "object" ? item.selector : item;
-      if (!selector || typeof selector !== "string") return;
 
+    // 1. รวบรวม Selector ทั้งหมดที่ยังเปิดใช้งานอยู่ปัจจุบัน
+    const activeSelectors = new Set();
+    hiddenList.forEach((item) => {
+      const selector = item && typeof item === "object" ? item.selector : item;
+      if (selector && typeof selector === "string") {
+        activeSelectors.add(selector);
+      }
+    });
+
+    // 2. ค้นหา element ทั้งหมดในหน้าเว็บที่เคยถูกซ่อนไว้ด้วย attribute พิเศษของเรา
+    const previouslyHiddenElements = document.querySelectorAll(
+      '[data-element-blocker-hidden="true"]'
+    );
+
+    previouslyHiddenElements.forEach((el) => {
+      const originalSelector = el.getAttribute("data-element-blocker-selector");
+      // ถ้า Selector นี้ไม่มีอยู่ใน Storage แล้ว (ถูกลบออก) ให้คืนค่าการแสดงผลเดิม
+      if (!activeSelectors.has(originalSelector)) {
+        el.style.removeProperty("display");
+        el.removeAttribute("data-element-blocker-hidden");
+        el.removeAttribute("data-element-blocker-selector");
+
+        // ถ้าไม่มี inline style เหลืออยู่เลย ให้ลบ attribute style ออกด้วยเพื่อความสะอาด
+        if (el.getAttribute("style") === "") {
+          el.removeAttribute("style");
+        }
+      }
+    });
+
+    // 3. ทำการซ่อน Element ตาม Selector ที่มีอยู่ในปัจจุบัน
+    activeSelectors.forEach((selector) => {
       try {
         document.querySelectorAll(selector).forEach((el) => {
           el.style.setProperty("display", "none", "important");
+          el.setAttribute("data-element-blocker-hidden", "true");
+          el.setAttribute("data-element-blocker-selector", selector);
         });
       } catch (e) {
         console.error("Invalid selector:", selector, e);
@@ -145,7 +173,6 @@ document.addEventListener(
       chrome.storage.local.get([hostname], (result) => {
         let hiddenList = result[hostname] || [];
 
-        // ตรวจสอบว่ามี selector นี้อยู่แล้วหรือยัง
         const existingIndex = hiddenList.findIndex(
           (item) => item.selector === selector
         );
@@ -187,7 +214,6 @@ document.addEventListener(
   true
 );
 
-// รวม Listener ทั้งหมดไว้ที่จุดเดียว
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_picker") {
     isPicking = true;
