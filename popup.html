@@ -5,106 +5,107 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <div class="header-container">
-      <h3>🛡️ <span data-i18n="extName">Element Blocker</span></h3>
-      <button
-        id="openTabBtn"
-        class="icon-setting-btn"
-        data-i18n-title="settingsTitleTooltip"
-        title="Open settings page"
-      >
-        ⚙️
-      </button>
-    </div>
+    <div class="popup-wrapper">
+      <div class="header-container">
+        <h3>🛡️ <span data-i18n="extName">Element Blocker</span></h3>
+        <button
+          id="openTabBtn"
+          class="icon-setting-btn"
+          data-i18n-title="settingsTitleTooltip"
+          title="Open settings page"
+        >
+          ⚙️
+        </button>
+      </div>
 
-    <div
-      class="auto-pick-container"
-      style="
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #f8f9fa;
-        padding: 6px 10px;
-        border-radius: 6px;
-        border: 1px solid #e1e4e8;
-      "
-    >
-      <span
-        id="autoStatusText"
-        style="font-size: 11px; font-weight: 600; color: #333"
-        data-i18n="autoPickStatusOn"
-        >🤖 Auto Pick เว็บนี้: เปิดอยู่</span
-      >
-      <button
-        id="toggleAutoBtn"
+      <div
+        class="auto-pick-container"
         style="
-          padding: 3px 8px;
-          font-size: 10px;
-          cursor: pointer;
-          color: white;
-          background: #d93025;
-          border: none;
-          border-radius: 4px;
-          font-weight: 600;
+          margin-bottom: 10px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #f8f9fa;
+          padding: 6px 10px;
+          border-radius: 6px;
+          border: 1px solid #e1e4e8;
         "
-        data-i18n="autoPickTurnOffBtn"
       >
-        ปิด Auto
-      </button>
-    </div>
+        <span
+          id="autoStatusText"
+          style="font-size: 11px; font-weight: 600; color: #333"
+          data-i18n="autoPickStatusOn"
+          >🤖 Auto Pick เว็บนี้: เปิดอยู่</span
+        >
+        <button
+          id="toggleAutoBtn"
+          style="
+            padding: 3px 8px;
+            font-size: 10px;
+            cursor: pointer;
+            color: white;
+            background: #d93025;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+          "
+          data-i18n="autoPickTurnOffBtn"
+        >
+          ปิด Auto
+        </button>
+      </div>
 
-    <button
-      id="pickBtn"
-      class="hero-btn"
-      data-i18n="pickBtn"
-      data-i18n-title="pickBtnTooltip"
-      title="Click to select and hide element"
-    >
-      🎯 Pick element to hide
-    </button>
-
-    <div class="section-label" data-i18n="customSelectorLabel">
-      Custom Selector:
-    </div>
-    <div class="custom-box">
-      <input
-        type="text"
-        id="customInput"
-        data-i18n-placeholder="customInputPlaceholder"
-        placeholder="e.g. img[src$='.gif'], img[src$='.webp'] or div.ad-banner"
-      />
       <button
-        id="addCustomBtn"
-        class="add-icon-btn"
-        data-i18n-title="addBtnTooltip"
-        title="Add Custom Selector"
+        id="pickBtn"
+        class="hero-btn"
+        data-i18n="pickBtn"
+        data-i18n-title="pickBtnTooltip"
+        title="Click to select and hide element"
       >
-        ➕
+        🎯 Pick element to hide
       </button>
-    </div>
-    <div class="hint" id="editHint" data-i18n="editHintText">
-      💡 Click ✏️ on items below to edit
-    </div>
 
-    <div class="section-label" data-i18n="hiddenListLabel">
-      Hidden items on this site:
-    </div>
-    <ul id="hiddenList">
-      <li
-        style="
-          justify-content: center;
-          color: #999;
-          cursor: default;
-          border: none;
-          background: transparent;
-        "
-        data-i18n="noItemsText"
-      >
-        No hidden items yet
-      </li>
-    </ul>
+      <div class="section-label" data-i18n="customSelectorLabel">
+        Custom Selector:
+      </div>
+      <div class="custom-box">
+        <input
+          type="text"
+          id="customInput"
+          data-i18n-placeholder="customInputPlaceholder"
+          placeholder="e.g. img[src$='.gif'], img[src$='.webp'] or div.ad-banner"
+        />
+        <button
+          id="addCustomBtn"
+          class="add-icon-btn"
+          data-i18n-title="addBtnTooltip"
+          title="Add Custom Selector"
+        >
+          ➕
+        </button>
+      </div>
+      <div class="hint" id="editHint" data-i18n="editHintText">
+        💡 Click ✏️ on items below to edit
+      </div>
 
+      <div class="section-label" data-i18n="hiddenListLabel">
+        Hidden items on this site:
+      </div>
+      <ul id="hiddenList">
+        <li
+          style="
+            justify-content: center;
+            color: #999;
+            cursor: default;
+            border: none;
+            background: transparent;
+          "
+          data-i18n="noItemsText"
+        >
+          No hidden items yet
+        </li>
+      </ul>
+    </div>
     <script src="i18n.js"></script>
     <script src="defaults.js"></script>
     <script src="popup.js"></script>
