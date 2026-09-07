@@ -237,12 +237,37 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const fragment = document.createDocumentFragment();
 
+        // 📌 เพิ่มส่วนคำอธิบายสี (Legend) ด้านบนสุดของรายการ
+        const legendDiv = document.createElement("div");
+        legendDiv.style.display = "flex";
+        legendDiv.style.alignItems = "center";
+        legendDiv.style.gap = "12px";
+        legendDiv.style.fontSize = "11px";
+        legendDiv.style.color = "#666";
+        legendDiv.style.marginBottom = "6px";
+        legendDiv.style.paddingLeft = "2px";
+        legendDiv.innerHTML = `
+          <span style="display:inline-flex; align-items:center; gap:4px;">
+            <span style="width:10px; height:10px; background:#e8f0fe; border:1px solid #b8d0fc; border-radius:2px;"></span> Auto
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:4px;">
+            <span style="width:10px; height:10px; background:#fff; border:1px solid #ddd; border-radius:2px;"></span> Custom
+          </span>
+        `;
+        fragment.appendChild(legendDiv);
+
         displayItems.forEach((itemObj, displayIndex) => {
           const sel = itemObj.selector;
           const isAuto = itemObj.isAuto;
           const originalIndex = itemObj.originalIndex;
 
           const li = document.createElement("li");
+
+          // 🎨 ถ้าเป็น Auto ให้เปลี่ยนสีพื้นหลังทั้งแถบเป็นสีฟ้าอ่อน พร้อมปรับขอบ
+          if (isAuto) {
+            li.style.backgroundColor = "#e8f0fe";
+            li.style.borderColor = "#d2e3fc";
+          }
 
           const textContainer = document.createElement("div");
           textContainer.style.display = "flex";
@@ -276,18 +301,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           textContainer.appendChild(badge);
           textContainer.appendChild(span);
-
-          if (isAuto) {
-            const autoBadge = document.createElement("span");
-            autoBadge.textContent = "Auto";
-            autoBadge.style.fontSize = "10px";
-            autoBadge.style.background = "#e8f0fe";
-            autoBadge.style.color = "#1a73e8";
-            autoBadge.style.padding = "1px 4px";
-            autoBadge.style.borderRadius = "3px";
-            autoBadge.style.flexShrink = "0";
-            textContainer.appendChild(autoBadge);
-          }
 
           const startEditing = async () => {
             customInput.value = sel;
@@ -358,7 +371,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                       ? !!targetItem.isAuto
                       : false;
 
-                  // เช็กว่าถ้าเป็น isAuto หรือเนื้อหาตรงกับ DEFAULT_AUTO_PICK_RULES
                   let matchesDefaultRule = false;
                   if (
                     typeof DEFAULT_AUTO_PICK_RULES !== "undefined" &&
@@ -368,14 +380,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                       DEFAULT_AUTO_PICK_RULES.includes(targetSelector);
                   }
 
-                  // console.log("Delete Debug:", {
-                  //   targetSelector,
-                  //   isAutoVal,
-                  //   matchesDefaultRule,
-                  //   originalIndex,
-                  //   DEFAULT_AUTO_PICK_RULES_Defined:
-                  //     typeof DEFAULT_AUTO_PICK_RULES !== "undefined"
-                  // });
                   if ((isAutoVal || matchesDefaultRule) && targetSelector) {
                     if (!disabledSelectors.includes(targetSelector)) {
                       disabledSelectors.push(targetSelector);
@@ -495,7 +499,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         let hiddenList = result[hostname] || [];
         let disabledSelectors = result.disabled_auto_selectors || [];
 
-        // ถ้ากำลังอยู่ในโหมดแก้ไข และตัวเดิมที่เป็น Auto ถูกแก้ไขเปลี่ยนแปลงไป
         if (
           editingIndex !== null &&
           editingIndex >= 0 &&
@@ -509,7 +512,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             let oldSelector =
               typeof oldItem === "string" ? oldItem : oldItem.selector;
 
-            // เช็กว่าถ้า selector เปลี่ยนไปจากเดิม ค่อยเอาตัวเก่าใส่ disabled_auto_selectors
             if (oldSelector && oldSelector !== val) {
               if (!disabledSelectors.includes(oldSelector)) {
                 disabledSelectors.push(oldSelector);
@@ -518,7 +520,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
 
-        // ปลดล็อกทันทีถ้าค่าที่บันทึก/แก้ไขใหม่ไปตรงกับค่าที่เคยถูกบล็อกไว้
         disabledSelectors = disabledSelectors.filter((s) => s !== val);
 
         if (
@@ -576,9 +577,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (customInput) {
     customInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter" && !addCustomBtn.disabled) {
-        handleSaveOrAdd();
-      }
+      e.key === "Enter" && !addCustomBtn.disabled && handleSaveOrAdd();
     });
   }
 });
