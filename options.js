@@ -493,10 +493,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           const excludeBtnText = await safeGetMsg("excludeBtn", "Exclude");
 
           let htmlList = response.elements
-            .map((el, idx) => {
+            .map((elHtml, idx) => {
               return `
                 <div style="display: flex; align-items: stretch; background: #ffffff; margin-bottom: 6px; border-radius: 4px; border: 1px solid #e0e0e0; box-shadow: 0 1px 2px rgba(0,0,0,0.02); overflow: hidden;">
-                  <div style="flex: 1; font-family: monospace; font-size: 11px; padding: 6px 8px; word-break: break-all; color: #202124; display: flex; align-items: center;">${escapeHtml(el)}</div>
+                  <div style="flex: 1; font-family: monospace; font-size: 11px; padding: 6px 8px; word-break: break-all; color: #202124; display: flex; align-items: center;">${escapeHtml(elHtml)}</div>
                   <button class="exclude-item-btn" data-index="${idx}" style="background: #f1f3f4; border: none; border-left: 1px solid #e0e0e0; color: #d93025; font-size: 11px; font-weight: bold; padding: 0 10px; cursor: pointer; white-space: nowrap; transition: background 0.2s;">${excludeBtnText}</button>
                 </div>
               `;
@@ -517,30 +517,70 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div>${htmlList}</div>
           `;
 
-          // ผูก Event ให้ปุ่ม Exclude ของแต่ละรายการ
-          const excludeButtons =
-            previewBox.querySelectorAll(".exclude-item-btn");
-          excludeButtons.forEach((btn) => {
-            btn.addEventListener(
-              "mouseover",
-              () => (btn.style.background = "#fce8e6")
-            );
-            btn.addEventListener(
-              "mouseout",
-              () => (btn.style.background = "#f1f3f4")
-            );
-            btn.addEventListener("click", () => {
-              const idx = parseInt(btn.getAttribute("data-index"), 10);
-              const targetEl = response.elements[idx];
-              if (editInput && targetEl) {
-                let currentSel = editInput.value.trim();
-                if (!currentSel.includes(`:not(${targetEl})`)) {
-                  editInput.value = `${currentSel}:not([alt="${targetEl.match(/alt="([^"]+)"/)?.[1] || ""}"])`;
-                }
-                updatePreview();
-              }
-            });
-          });
+          // ดึง element จริงจาก DOM มาวิเคราะห์คุณสมบัติผ่าน tab ปลายทาง เพื่อทำ :not() ได้ฉลาดและแม่นยำ
+          chrome.tabs.sendMessage(
+            targetTab.id,
+            { action: "getElementsAttributes", selector: selector },
+            (attrResponse) => {
+              const elementAttrs =
+                attrResponse && attrResponse.attributes
+                  ? attrResponse.attributes
+                  : [];
+
+              const excludeButtons =
+                previewBox.querySelectorAll(".exclude-item-btn");
+              excludeButtons.forEach((btn) => {
+                btn.addEventListener(
+                  "mouseover",
+                  () => (btn.style.background = "#fce8e6")
+                );
+                btn.addEventListener(
+                  "mouseout",
+                  () => (btn.style.background = "#f1f3f4")
+                );
+                btn.addEventListener("click", () => {
+                  const idx = parseInt(btn.getAttribute("data-index"), 10);
+                  const targetAttr = elementAttrs[idx];
+
+                  if (editInput && targetAttr) {
+                    let currentSel = editInput.value.trim();
+                    let excludeCondition = "";
+
+                    if (targetAttr.id) {
+                      excludeCondition = `#${CSS.escape(targetAttr.id)}`;
+                    } else if (targetAttr.className) {
+                      const classes = targetAttr.className
+                        .trim()
+                        .split(/\s+/)
+                        .filter((c) => c);
+                      if (classes.length > 0) {
+                        excludeCondition = `.${classes.map((c) => CSS.escape(c)).join(".")}`;
+                      }
+                    }
+
+                    if (!excludeCondition && targetAttr.alt) {
+                      excludeCondition = `[alt="${targetAttr.alt.replace(/"/g, '\\"')}"]`;
+                    } else if (!excludeCondition && targetAttr.name) {
+                      excludeCondition = `[name="${targetAttr.name.replace(/"/g, '\\"')}"]`;
+                    } else if (!excludeCondition && targetAttr.src) {
+                      const filename = targetAttr.src.split("/").pop();
+                      if (filename) {
+                        excludeCondition = `[src*="${filename.replace(/"/g, '\\"')}"]`;
+                      }
+                    }
+
+                    if (excludeCondition) {
+                      const notQuery = `:not(${excludeCondition})`;
+                      if (!currentSel.includes(notQuery)) {
+                        editInput.value = `${currentSel}${notQuery}`;
+                      }
+                      updatePreview();
+                    }
+                  }
+                });
+              });
+            }
+          );
         }
       );
     });
@@ -586,6 +626,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     cancelBtn.addEventListener("click", () => {
       editModal.style.display = "none";
       currentEditing = null;
+    });
+  }
+
+  // ป้องกัน Modal ปิดเวลากดลากขยาย textarea แล้วเผลอปล่อยเมาส์ออกนอกกรอบ
+  let isMouseDownInsideModal = false;
+  if (editModal) {
+    const modalBox = editModal.querySelector(".modal");
+
+    if (modalBox) {
+      modalBox.addEventListener("mousedown", () => {
+        isMouseDownInsideModal = true;
+      });
+    }
+
+    editModal.addEventListener("mousedown", (e) => {
+      if (e.target === editModal) {
+        isMouseDownInsideModal = false;
+      }
+    });
+
+    editModal.addEventListener("click", (e) => {
+      if (e.target === editModal && !isMouseDownInsideModal) {
+        editModal.style.display = "none";
+        currentEditing = null;
+      }
+      isMouseDownInsideModal = false;
     });
   }
 
