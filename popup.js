@@ -152,24 +152,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  // ดักฟังการเปลี่ยนภาษาหรือข้อมูลใน storage แบบเรียลไทม์
-  chrome.storage.onChanged.addListener(async (changes, areaName) => {
-    if (areaName === "local") {
-      if (changes.preferred_lang) {
-        await localizePopupElements();
-        chrome.storage.local.get(["disabled_auto_hosts"], async (data) => {
-          let disabledHosts = data.disabled_auto_hosts || [];
-          await updateAutoUI(disabledHosts.includes(hostname));
-        });
-        await resetEditingState();
-        loadList();
-      }
-      if (changes[hostname]) {
-        loadList();
-      }
-    }
-  });
-
   // ฟังก์ชันกลางสำหรับทำความสะอาดและจัดระเบียบข้อมูล Selector
   function cleanItemsData(rawItems) {
     if (!Array.isArray(rawItems)) return [];
@@ -206,7 +188,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     return cleanedArray;
   }
 
-  async function loadList() {
+  // ฟังก์ชันโหลดและเรนเดอร์รายการทั้งหมด (Single Source of Truth สำหรับการแสดงผล UI)
+  async function loadAndRenderList() {
+    if (!listEl) return;
+
+    // เคลียร์ UI ทันทีที่เริ่มโหลดข้อมูลใหม่ ป้องกันการซ้ำซ้อน
+    listEl.innerHTML = "";
+
     chrome.storage.local.get([hostname], async (result) => {
       let rawItems = result[hostname] || [];
       if (!Array.isArray(rawItems)) rawItems = [];
@@ -232,191 +220,206 @@ document.addEventListener("DOMContentLoaded", async () => {
           })
         );
         chrome.storage.local.set({ [hostname]: storageToSave });
+        return; // ออกก่อนเพื่อให้ storage.onChanged ทำหน้าที่เรนเดอร์ต่อรอบถัดไป
       }
 
       let displayItems = uniqueItems;
 
-      if (listEl) {
-        listEl.innerHTML = "";
+      if (displayItems.length === 0) {
+        const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
+        listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
+      } else {
+        const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
+        const deleteTooltip = await getMsg(
+          "deleteBtnTooltip",
+          "Delete this item"
+        );
 
-        if (displayItems.length === 0) {
-          const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
-          listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
-        } else {
-          const editTooltip = await getMsg("editBtnTooltip", "Edit this item");
-          const deleteTooltip = await getMsg(
-            "deleteBtnTooltip",
-            "Delete this item"
-          );
+        const fragment = document.createDocumentFragment();
 
-          const fragment = document.createDocumentFragment();
+        displayItems.forEach((itemObj, displayIndex) => {
+          const sel = itemObj.selector;
+          const isAuto = itemObj.isAuto;
+          const originalIndex = itemObj.originalIndex;
 
-          displayItems.forEach((itemObj, displayIndex) => {
-            const sel = itemObj.selector;
-            const isAuto = itemObj.isAuto;
-            const originalIndex = itemObj.originalIndex;
+          const li = document.createElement("li");
 
-            const li = document.createElement("li");
+          const textContainer = document.createElement("div");
+          textContainer.style.display = "flex";
+          textContainer.style.alignItems = "center";
+          textContainer.style.gap = "8px";
+          textContainer.style.flex = "1";
+          textContainer.style.overflow = "hidden";
+          textContainer.style.marginRight = "6px";
 
-            const textContainer = document.createElement("div");
-            textContainer.style.display = "flex";
-            textContainer.style.alignItems = "center";
-            textContainer.style.gap = "8px";
-            textContainer.style.flex = "1";
-            textContainer.style.overflow = "hidden";
-            textContainer.style.marginRight = "6px";
+          const badge = document.createElement("span");
+          badge.textContent = `#${displayIndex + 1}`;
+          badge.style.color = "#888";
+          badge.style.display = "inline-block";
+          badge.style.minWidth = "24px";
+          badge.style.fontWeight = "600";
+          badge.style.flexShrink = "0";
+          badge.style.flexGrow = "0";
+          badge.style.cursor = "pointer";
+          badge.style.whiteSpace = "nowrap";
+          badge.style.marginRight = "0";
 
-            const badge = document.createElement("span");
-            badge.textContent = `#${displayIndex + 1}`;
-            badge.style.color = "#888";
-            badge.style.display = "inline-block";
-            badge.style.minWidth = "24px";
-            badge.style.fontWeight = "600";
-            badge.style.flexShrink = "0";
-            badge.style.flexGrow = "0";
-            badge.style.cursor = "pointer";
-            badge.style.whiteSpace = "nowrap";
-            badge.style.marginRight = "0";
+          const span = document.createElement("span");
+          span.textContent = sel;
+          span.title = sel;
+          span.style.flex = "1";
+          span.style.minWidth = "0";
+          span.style.overflow = "hidden";
+          span.style.textOverflow = "ellipsis";
+          span.style.whiteSpace = "nowrap";
+          span.style.marginLeft = "0";
 
-            const span = document.createElement("span");
-            span.textContent = sel;
-            span.title = sel;
-            span.style.flex = "1";
-            span.style.minWidth = "0";
-            span.style.overflow = "hidden";
-            span.style.textOverflow = "ellipsis";
-            span.style.whiteSpace = "nowrap";
-            span.style.marginLeft = "0";
+          textContainer.appendChild(badge);
+          textContainer.appendChild(span);
 
-            textContainer.appendChild(badge);
-            textContainer.appendChild(span);
+          if (isAuto) {
+            const autoBadge = document.createElement("span");
+            autoBadge.textContent = "Auto";
+            autoBadge.style.fontSize = "10px";
+            autoBadge.style.background = "#e8f0fe";
+            autoBadge.style.color = "#1a73e8";
+            autoBadge.style.padding = "1px 4px";
+            autoBadge.style.borderRadius = "3px";
+            autoBadge.style.flexShrink = "0";
+            textContainer.appendChild(autoBadge);
+          }
 
-            if (isAuto) {
-              const autoBadge = document.createElement("span");
-              autoBadge.textContent = "Auto";
-              autoBadge.style.fontSize = "10px";
-              autoBadge.style.background = "#e8f0fe";
-              autoBadge.style.color = "#1a73e8";
-              autoBadge.style.padding = "1px 4px";
-              autoBadge.style.borderRadius = "3px";
-              autoBadge.style.flexShrink = "0";
-              textContainer.appendChild(autoBadge);
-            }
+          const startEditing = async () => {
+            customInput.value = sel;
+            originalEditValue = sel;
+            editingIndex = originalIndex;
+            addCustomBtn.innerHTML = "💾";
+            addCustomBtn.title = await getMsg(
+              "updateBtnTooltip",
+              "Update this item"
+            );
+            addCustomBtn.className = "add-icon-btn warning";
+            cancelEditBtn.style.display = "inline-flex";
+            cancelEditBtn.title = await getMsg(
+              "cancelBtnTooltip",
+              "Cancel editing"
+            );
 
-            const startEditing = async () => {
-              customInput.value = sel;
-              originalEditValue = sel;
-              editingIndex = originalIndex;
-              addCustomBtn.innerHTML = "💾";
-              addCustomBtn.title = await getMsg(
-                "updateBtnTooltip",
-                "Update this item"
-              );
-              addCustomBtn.className = "add-icon-btn warning";
-              cancelEditBtn.style.display = "inline-flex";
-              cancelEditBtn.title = await getMsg(
-                "cancelBtnTooltip",
-                "Cancel editing"
-              );
+            const editingText = await getMsg(
+              "editingIndexText",
+              "💡 Editing item $1"
+            );
+            editHint.textContent = (
+              editingText || "💡 Editing item $1"
+            ).replace("$1", displayIndex + 1);
+            customInput.focus();
+            updateAddButtonState();
+          };
 
-              const editingText = await getMsg(
-                "editingIndexText",
-                "💡 Editing item $1"
-              );
-              editHint.textContent = (
-                editingText || "💡 Editing item $1"
-              ).replace("$1", displayIndex + 1);
-              customInput.focus();
-              updateAddButtonState();
-            };
+          badge.addEventListener("click", startEditing);
+          span.addEventListener("click", startEditing);
 
-            badge.addEventListener("click", startEditing);
-            span.addEventListener("click", startEditing);
+          const btnGroup = document.createElement("div");
+          btnGroup.className = "btn-group";
 
-            const btnGroup = document.createElement("div");
-            btnGroup.className = "btn-group";
+          const editBtn = document.createElement("button");
+          editBtn.innerHTML = "✏️";
+          editBtn.title = editTooltip;
+          editBtn.className = "icon-btn btn-edit";
+          editBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            startEditing();
+          });
 
-            const editBtn = document.createElement("button");
-            editBtn.innerHTML = "✏️";
-            editBtn.title = editTooltip;
-            editBtn.className = "icon-btn btn-edit";
-            editBtn.addEventListener("click", (e) => {
-              e.stopPropagation();
-              startEditing();
-            });
+          const delBtn = document.createElement("button");
+          delBtn.innerHTML = "🗑️";
+          delBtn.title = deleteTooltip;
+          delBtn.className = "icon-btn btn-del";
+          delBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
 
-            const delBtn = document.createElement("button");
-            delBtn.innerHTML = "🗑️";
-            delBtn.title = deleteTooltip;
-            delBtn.className = "icon-btn btn-del";
-            delBtn.addEventListener("click", (e) => {
-              e.stopPropagation();
+            chrome.storage.local.get(
+              [hostname, "disabled_auto_selectors"],
+              (currentRes) => {
+                let currentItems = currentRes[hostname] || [];
+                let disabledSelectors =
+                  currentRes.disabled_auto_selectors || [];
 
-              chrome.storage.local.get(
-                [hostname, "disabled_auto_selectors"],
-                (currentRes) => {
-                  let currentItems = currentRes[hostname] || [];
-                  let disabledSelectors =
-                    currentRes.disabled_auto_selectors || [];
+                const targetItem = currentItems[originalIndex];
 
-                  const targetItem = currentItems[originalIndex];
-
-                  // ถ้าเป็นรายการ Auto ให้เพิ่มเข้าไปใน disabled_auto_selectors เมื่อถูกลบ
+                // ถ้าเป็นรายการ Auto ให้เพิ่มเข้าไปใน disabled_auto_selectors เมื่อถูกลบ
+                if (
+                  targetItem &&
+                  (typeof targetItem === "object" ? targetItem.isAuto : false)
+                ) {
+                  let targetSelector =
+                    typeof targetItem === "string"
+                      ? targetItem
+                      : targetItem.selector;
                   if (
-                    targetItem &&
-                    (typeof targetItem === "object" ? targetItem.isAuto : false)
+                    targetSelector &&
+                    !disabledSelectors.includes(targetSelector)
                   ) {
-                    let targetSelector =
-                      typeof targetItem === "string"
-                        ? targetItem
-                        : targetItem.selector;
-                    if (
-                      targetSelector &&
-                      !disabledSelectors.includes(targetSelector)
-                    ) {
-                      disabledSelectors.push(targetSelector);
-                    }
-                  }
-
-                  currentItems.splice(originalIndex, 1);
-
-                  const saveData = {
-                    [hostname]: currentItems,
-                    disabled_auto_selectors: disabledSelectors
-                  };
-
-                  if (currentItems.length === 0) {
-                    chrome.storage.local.remove(hostname, () => {
-                      chrome.storage.local.set(
-                        { disabled_auto_selectors: disabledSelectors },
-                        () => {
-                          resetEditingState();
-                          triggerTabRefresh();
-                        }
-                      );
-                    });
-                  } else {
-                    chrome.storage.local.set(saveData, () => {
-                      resetEditingState();
-                      triggerTabRefresh();
-                    });
+                    disabledSelectors.push(targetSelector);
                   }
                 }
-              );
-            });
 
-            btnGroup.appendChild(editBtn);
-            btnGroup.appendChild(delBtn);
+                currentItems.splice(originalIndex, 1);
 
-            li.appendChild(textContainer);
-            li.appendChild(btnGroup);
-            fragment.appendChild(li);
+                const saveData = {
+                  [hostname]: currentItems,
+                  disabled_auto_selectors: disabledSelectors
+                };
+
+                if (currentItems.length === 0) {
+                  chrome.storage.local.remove(hostname, () => {
+                    chrome.storage.local.set(
+                      { disabled_auto_selectors: disabledSelectors },
+                      () => {
+                        resetEditingState();
+                        triggerTabRefresh();
+                      }
+                    );
+                  });
+                } else {
+                  chrome.storage.local.set(saveData, () => {
+                    resetEditingState();
+                    triggerTabRefresh();
+                  });
+                }
+              }
+            );
           });
-          listEl.appendChild(fragment);
-        }
+
+          btnGroup.appendChild(editBtn);
+          btnGroup.appendChild(delBtn);
+
+          li.appendChild(textContainer);
+          li.appendChild(btnGroup);
+          fragment.appendChild(li);
+        });
+        listEl.appendChild(fragment);
       }
     });
   }
+
+  // ดักฟังการเปลี่ยนภาษาหรือข้อมูลใน storage ที่จุดนี้ที่เดียวเพื่ออัปเดต UI
+  chrome.storage.onChanged.addListener(async (changes, areaName) => {
+    if (areaName === "local") {
+      if (changes.preferred_lang) {
+        await localizePopupElements();
+        chrome.storage.local.get(["disabled_auto_hosts"], async (data) => {
+          let disabledHosts = data.disabled_auto_hosts || [];
+          await updateAutoUI(disabledHosts.includes(hostname));
+        });
+        await resetEditingState();
+        loadAndRenderList();
+      }
+      if (changes[hostname]) {
+        loadAndRenderList();
+      }
+    }
+  });
 
   async function resetEditingState() {
     editingIndex = null;
@@ -441,7 +444,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     resetEditingState();
   });
 
-  loadList();
+  // โหลดครั้งแรกตอนเปิด Popup
+  loadAndRenderList();
 
   if (pickBtn) {
     pickBtn.addEventListener("click", () => {
