@@ -243,7 +243,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "refreshHiddenElements") {
     applySavedHiddenElements();
     sendResponse({ status: "refreshed" });
-  } else if (request.action === "previewSelector") {
+  } else if (
+    request.action === "previewSelector" ||
+    request.action === "previewSelectorWithAttributes"
+  ) {
     try {
       const elements = document.querySelectorAll(request.selector);
       const results = Array.from(elements)
@@ -253,9 +256,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             ? el.outerHTML.substring(0, 100) + "..."
             : el.outerHTML;
         });
-      sendResponse({ elements: results });
+
+      const attributes = Array.from(elements)
+        .slice(0, 5)
+        .map((el) => ({
+          id: el.id || "",
+          className: el.className || "",
+          alt: el.getAttribute("alt") || "",
+          name: el.getAttribute("name") || "",
+          src: el.getAttribute("src") || ""
+        }));
+
+      sendResponse({ elements: results, attributes: attributes });
     } catch (e) {
-      sendResponse({ elements: [] });
+      sendResponse({ elements: [], attributes: [] });
     }
     return true;
   }
