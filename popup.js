@@ -26,6 +26,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const editHint = document.getElementById("editHint");
   const listEl = document.getElementById("hiddenList");
 
+  // อ้างอิง Element ปุ่มเปิด/ปิด Auto Pick จากไฟล์ popup.html ที่มีอยู่แล้ว
+  const autoStatusText = document.getElementById("autoStatusText");
+  const toggleAutoBtn = document.getElementById("toggleAutoBtn");
+
   let editingIndex = null;
 
   // ฟังก์ชันส่งสัญญาณให้ Content Script อัปเดตการซ่อน Element ทันที
@@ -37,72 +41,61 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // สร้าง UI สำหรับปุ่ม เปิด/ปิด Auto Pick ประจำเว็บไซต์นี้ (แทรกไว้ด้านบนสุดของ container หรือใต้หัวข้อ)
-  const container = document.body; // หรือเลือก element หลักที่ต้องการแทรก
-  const autoToggleContainer = document.createElement("div");
-  autoToggleContainer.style.cssText =
-    "margin: 8px 12px; padding: 6px 10px; background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;";
-
-  const autoStatusText = document.createElement("span");
-  autoStatusText.style.cssText =
-    "font-size: 11px; font-weight: 600; color: #333;";
-  autoStatusText.textContent = "🤖 Auto Pick เว็บนี้: กำลังโหลด...";
-
-  const toggleAutoBtn = document.createElement("button");
-  toggleAutoBtn.style.cssText =
-    "padding: 3px 8px; font-size: 10px; cursor: pointer; color: white; border: none; border-radius: 4px; font-weight: 600;";
-
-  autoToggleContainer.appendChild(autoStatusText);
-  autoToggleContainer.appendChild(toggleAutoBtn);
-
-  // แทรกไว้ใต้ส่วนหัว (เช่น ก่อนส่วนของ pickBtn หรือช่องกรอก)
-  const firstChildElement = container.firstElementChild;
-  if (firstChildElement) {
-    container.insertBefore(
-      autoToggleContainer,
-      firstChildElement.nextSibling || firstChildElement
-    );
-  } else {
-    container.appendChild(autoToggleContainer);
-  }
-
   // โหลดและจัดการสถานะ Auto Pick ของเว็บไซต์นี้
-  chrome.storage.local.get(["disabled_auto_hosts"], (data) => {
+  chrome.storage.local.get(["disabled_auto_hosts"], async (data) => {
     let disabledHosts = data.disabled_auto_hosts || [];
     let isDisabled = disabledHosts.includes(hostname);
 
-    updateAutoUI(isDisabled);
+    await updateAutoUI(isDisabled);
 
-    toggleAutoBtn.addEventListener("click", () => {
-      chrome.storage.local.get(["disabled_auto_hosts"], (latestData) => {
-        let currentDisabled = latestData.disabled_auto_hosts || [];
-        let currentlyDisabled = currentDisabled.includes(hostname);
+    if (toggleAutoBtn) {
+      toggleAutoBtn.addEventListener("click", () => {
+        chrome.storage.local.get(
+          ["disabled_auto_hosts"],
+          async (latestData) => {
+            let currentDisabled = latestData.disabled_auto_hosts || [];
+            let currentlyDisabled = currentDisabled.includes(hostname);
 
-        if (currentlyDisabled) {
-          currentDisabled = currentDisabled.filter((h) => h !== hostname);
-        } else {
-          currentDisabled.push(hostname);
-        }
+            if (currentlyDisabled) {
+              currentDisabled = currentDisabled.filter((h) => h !== hostname);
+            } else {
+              currentDisabled.push(hostname);
+            }
 
-        chrome.storage.local.set(
-          { disabled_auto_hosts: currentDisabled },
-          () => {
-            updateAutoUI(!currentlyDisabled);
-            triggerTabRefresh();
+            chrome.storage.local.set(
+              { disabled_auto_hosts: currentDisabled },
+              async () => {
+                await updateAutoUI(!currentlyDisabled);
+                triggerTabRefresh();
+              }
+            );
           }
         );
       });
-    });
+    }
   });
 
-  function updateAutoUI(isDisabled) {
+  async function updateAutoUI(isDisabled) {
+    if (!autoStatusText || !toggleAutoBtn) return;
     if (isDisabled) {
-      autoStatusText.textContent = "🤖 Auto Pick เว็บนี้: ปิดอยู่";
-      toggleAutoBtn.textContent = "เปิด Auto";
+      autoStatusText.textContent = await getMsg(
+        "autoPickStatusOff",
+        "🤖 Auto Pick เว็บนี้: ปิดอยู่"
+      );
+      toggleAutoBtn.textContent = await getMsg(
+        "autoPickTurnOnBtn",
+        "เปิด Auto"
+      );
       toggleAutoBtn.style.background = "#1a73e8";
     } else {
-      autoStatusText.textContent = "🤖 Auto Pick เว็บนี้: เปิดอยู่";
-      toggleAutoBtn.textContent = "ปิด Auto";
+      autoStatusText.textContent = await getMsg(
+        "autoPickStatusOn",
+        "🤖 Auto Pick เว็บนี้: เปิดอยู่"
+      );
+      toggleAutoBtn.textContent = await getMsg(
+        "autoPickTurnOffBtn",
+        "ปิด Auto"
+      );
       toggleAutoBtn.style.background = "#d93025";
     }
   }
@@ -135,6 +128,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (areaName === "local") {
       if (changes.preferred_lang) {
         await localizePopupElements();
+        chrome.storage.local.get(["disabled_auto_hosts"], async (data) => {
+          let disabledHosts = data.disabled_auto_hosts || [];
+          await updateAutoUI(disabledHosts.includes(hostname));
+        });
         await resetEditingState();
         loadList();
       }

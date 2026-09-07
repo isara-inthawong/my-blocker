@@ -31,8 +31,44 @@ function getCssSelector(el) {
 
 const hostname = window.location.hostname.toLowerCase();
 
+// ฟังก์ชันสำหรับตรวจจับและซ่อนโฆษณาอัตโนมัติจาก Keywords ที่มักพบบ่อย
+function autoDetectAndHideAds() {
+  try {
+    // คำค้นหาเฉพาะข้อความที่ต้องการตรวจสอบ (Keywords)
+    const adKeywords =
+      typeof DEFAULT_AD_KEYWORDS !== "undefined"
+        ? DEFAULT_AD_KEYWORDS
+        : [
+            "สนับสนุนโดย",
+            "sponsored",
+            "advertisement",
+            "ad-banner",
+            "adsbygoogle"
+          ];
+
+    // ค้นหา Element ต่างๆ ที่มีข้อความเข้าข่าย
+    document.querySelectorAll("div, section, aside").forEach((el) => {
+      const text = el.innerText ? el.innerText.trim().toLowerCase() : "";
+
+      const hasAdKeyword =
+        text.length < 50 &&
+        adKeywords.some((keyword) => text.includes(keyword));
+
+      if (hasAdKeyword) {
+        if (
+          el.childElementCount < 10 &&
+          !el.getAttribute("data-element-blocker-hidden")
+        ) {
+          el.style.setProperty("display", "none", "important");
+          el.setAttribute("data-element-blocker-hidden", "true");
+          el.setAttribute("data-element-blocker-selector", "auto-detected-ad");
+        }
+      }
+    });
+  } catch (e) {}
+}
+
 function applySavedHiddenElements() {
-  // ป้องกัน Context หลุดเวลาอัปเดต Extension
   if (!chrome.runtime?.id) return;
 
   try {
@@ -45,7 +81,7 @@ function applySavedHiddenElements() {
 
       const activeSelectors = new Set();
 
-      // ถ้าระบบ Auto Pick เปิดอยู่ ให้ดึงกฎ Default เข้ามาด้วย
+      // ดึงกฎสำเร็จรูปจากไฟล์ defaults.js (รวมถึง Selector โฆษณาและเว็บพนันที่ย้ายไปก่อนหน้านี้)
       if (!isAutoDisabled && typeof DEFAULT_AUTO_PICK_RULES !== "undefined") {
         DEFAULT_AUTO_PICK_RULES.forEach((rule) => {
           if (rule && typeof rule === "string") {
@@ -54,7 +90,6 @@ function applySavedHiddenElements() {
         });
       }
 
-      // ดึงกฎที่ผู้ใช้บันทึกไว้หรือเพิ่มเอง
       hiddenList.forEach((item) => {
         const selector =
           item && typeof item === "object" ? item.selector : item;
@@ -71,7 +106,10 @@ function applySavedHiddenElements() {
         const originalSelector = el.getAttribute(
           "data-element-blocker-selector"
         );
-        if (!activeSelectors.has(originalSelector)) {
+        if (
+          !activeSelectors.has(originalSelector) &&
+          originalSelector !== "auto-detected-ad"
+        ) {
           el.style.removeProperty("display");
           el.removeAttribute("data-element-blocker-hidden");
           el.removeAttribute("data-element-blocker-selector");
@@ -82,6 +120,7 @@ function applySavedHiddenElements() {
         }
       });
 
+      // ซ่อนตาม Selector ที่บันทึกไว้
       activeSelectors.forEach((selector) => {
         try {
           document.querySelectorAll(selector).forEach((el) => {
@@ -89,14 +128,15 @@ function applySavedHiddenElements() {
             el.setAttribute("data-element-blocker-hidden", "true");
             el.setAttribute("data-element-blocker-selector", selector);
           });
-        } catch (e) {
-          // ป้องกัน Error พังทั้งระบบกรณีผู้ใช้กรอก Selector ผิดฟอร์ม
-        }
+        } catch (e) {}
       });
+
+      // ถ้าระบบ Auto Pick เปิดอยู่ ให้รันระบบตรวจจับโฆษณาอัจฉริยะเพิ่มด้วย
+      if (!isAutoDisabled) {
+        autoDetectAndHideAds();
+      }
     });
-  } catch (e) {
-    // ป้องกันกรณีบริบทถูกทำลายไปแล้วระหว่างกำลังทำงาน
-  }
+  } catch (e) {}
 }
 
 applySavedHiddenElements();
@@ -295,7 +335,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (changes.preferred_lang && isPicking) {
       createBanner();
     }
-    // ถ้ามีการเปลี่ยนค่า disabled_auto_hosts หรือข้อมูลใน hostname ให้รีเฟรชการซ่อน Element ทันที
     if (changes.disabled_auto_hosts || changes[hostname]) {
       applySavedHiddenElements();
     }

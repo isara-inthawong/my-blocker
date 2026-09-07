@@ -157,5 +157,25 @@
   "previewFoundCount": {
     "message": "พบ $1 รายการ:",
     "description": "Count header for preview matched elements"
+  },
+  "autoPickStatusOn": {
+    "message": "🤖 Auto Pick เว็บนี้: เปิดอยู่",
+    "description": "Status text when auto pick is enabled for the site"
+  },
+  "autoPickStatusOff": {
+    "message": "🤖 Auto Pick เว็บนี้: ปิดอยู่",
+    "description": "Status text when auto pick is disabled for the site"
+  },
+  "autoPickTurnOffBtn": {
+    "message": "ปิด Auto",
+    "description": "Button text to turn off auto pick"
+  },
+  "autoPickTurnOnBtn": {
+    "message": "เปิด Auto",
+    "description": "Button text to turn on auto pick"
+  },
+  "autoPickLoading": {
+    "message": "🤖 Auto Pick เว็บนี้: กำลังโหลด...",
+    "description": "Loading status text for auto pick"
   }
 }

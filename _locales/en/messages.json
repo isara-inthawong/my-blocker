@@ -157,5 +157,25 @@
   "previewFoundCount": {
     "message": "Found $1 items:",
     "description": "Count header for preview matched elements"
+  },
+  "autoPickStatusOn": {
+    "message": "🤖 Auto Pick for this site: ON",
+    "description": "Status text when auto pick is enabled for the site"
+  },
+  "autoPickStatusOff": {
+    "message": "🤖 Auto Pick for this site: OFF",
+    "description": "Status text when auto pick is disabled for the site"
+  },
+  "autoPickTurnOffBtn": {
+    "message": "Turn Off Auto",
+    "description": "Button text to turn off auto pick"
+  },
+  "autoPickTurnOnBtn": {
+    "message": "Turn On Auto",
+    "description": "Button text to turn on auto pick"
+  },
+  "autoPickLoading": {
+    "message": "🤖 Auto Pick for this site: Loading...",
+    "description": "Loading status text for auto pick"
   }
 }
