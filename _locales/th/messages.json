@@ -110,12 +110,6 @@
   "noItemsText": {
     "message": "ยังไม่มีรายการที่ซ่อนในเว็บไซต์นี้"
   },
-  "resetBtnTooltip": {
-    "message": "รีเซ็ตการซ่อนทั้งหมดสำหรับเว็บไซต์นี้"
-  },
-  "resetBtn": {
-    "message": "🗑️ รีเซ็ตการซ่อนทั้งหมด"
-  },
   "editBtnTooltip": {
     "message": "แก้ไขรายการนี้"
   },

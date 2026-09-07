@@ -20,7 +20,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const pickBtn = document.getElementById("pickBtn");
   const openTabBtn = document.getElementById("openTabBtn");
-  const resetBtn = document.getElementById("resetBtn");
   const addCustomBtn = document.getElementById("addCustomBtn");
   const customInput = document.getElementById("customInput");
   const editHint = document.getElementById("editHint");
@@ -141,34 +140,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // ฟังก์ชันกลางสำหรับทำความสะอาดและจัดระเบียบข้อมูล Selector
   function cleanItemsData(rawItems) {
     if (!Array.isArray(rawItems)) return [];
 
-    let items = rawItems
-      .map((item) => {
-        let sel = typeof item === "string" ? item : item.selector || "";
-        return {
-          selector: sel.trim(),
-          timestamp: item.timestamp || Date.now(),
-          isAuto: item.isAuto || false // รองรับสถานะบอกว่าเป็น Auto
-        };
-      })
-      .filter((item) => item.selector !== "");
+    let itemMap = new Map();
+    rawItems.forEach((item, originalIndex) => {
+      let sel = typeof item === "string" ? item : item?.selector || "";
+      sel = sel.trim();
+      if (!sel) return;
 
-    let uniqueMap = new Map();
-    items.forEach((item) => {
-      if (!uniqueMap.has(item.selector)) {
-        uniqueMap.set(item.selector, item);
+      let isAutoVal =
+        typeof item === "object" && item !== null ? !!item.isAuto : false;
+      let timestamp = item.timestamp || Date.now();
+
+      let newItem = {
+        selector: sel,
+        timestamp,
+        isAuto: isAutoVal,
+        originalIndex
+      };
+
+      if (!itemMap.has(sel)) {
+        itemMap.set(sel, newItem);
       } else {
-        if (
-          (item.timestamp || 0) > (uniqueMap.get(item.selector).timestamp || 0)
-        ) {
-          uniqueMap.set(item.selector, item);
+        if (timestamp > itemMap.get(sel).timestamp) {
+          itemMap.set(sel, newItem);
         }
       }
     });
 
-    let cleanedArray = Array.from(uniqueMap.values());
+    let cleanedArray = Array.from(itemMap.values());
     cleanedArray.sort((a, b) => b.timestamp - a.timestamp);
 
     return cleanedArray;
@@ -177,30 +179,37 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function loadList() {
     chrome.storage.local.get([hostname], async (result) => {
       let rawItems = result[hostname] || [];
-      let cleanItems = cleanItemsData(rawItems);
+      if (!Array.isArray(rawItems)) rawItems = [];
 
-      if (JSON.stringify(cleanItems) !== JSON.stringify(rawItems)) {
-        chrome.storage.local.set({ [hostname]: cleanItems });
-        return;
+      let uniqueItems = cleanItemsData(rawItems);
+
+      let isStorageDirty =
+        uniqueItems.length !== rawItems.length ||
+        uniqueItems.some((item, idx) => {
+          let orig = rawItems[idx];
+          let origSel = typeof orig === "string" ? orig : orig?.selector || "";
+          let origAuto =
+            typeof orig === "object" && orig !== null ? !!orig.isAuto : false;
+          return origSel.trim() !== item.selector || origAuto !== item.isAuto;
+        });
+
+      if (isStorageDirty) {
+        let storageToSave = uniqueItems.map(
+          ({ selector, timestamp, isAuto }) => ({
+            selector,
+            timestamp,
+            isAuto
+          })
+        );
+        chrome.storage.local.set({ [hostname]: storageToSave });
       }
 
-      let itemsWithIndex = cleanItems.map((item, originalIndex) => ({
-        ...item,
-        originalIndex
-      }));
-
-      // จัดการซ่อนหรือแสดงปุ่ม Reset ตามจำนวนรายการ
-      if (resetBtn) {
-        if (itemsWithIndex.length === 0) {
-          resetBtn.style.display = "none";
-        } else {
-          resetBtn.style.display = "";
-        }
-      }
+      let displayItems = uniqueItems;
 
       if (listEl) {
         listEl.innerHTML = "";
-        if (itemsWithIndex.length === 0) {
+
+        if (displayItems.length === 0) {
           const noItemsMsg = await getMsg("noItemsText", "No hidden items yet");
           listEl.innerHTML = `<li style="justify-content:center; color:#999; cursor:default; border:none; background:transparent;" data-i18n="noItemsText">${noItemsMsg}</li>`;
         } else {
@@ -210,7 +219,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             "Delete this item"
           );
 
-          itemsWithIndex.forEach((itemObj, displayIndex) => {
+          const fragment = document.createDocumentFragment();
+
+          displayItems.forEach((itemObj, displayIndex) => {
             const sel = itemObj.selector;
             const isAuto = itemObj.isAuto;
             const originalIndex = itemObj.originalIndex;
@@ -250,7 +261,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             textContainer.appendChild(badge);
             textContainer.appendChild(span);
 
-            // ถ้าเป็นรายการที่ระบบ Auto ทำการตรวจจับมา ให้แสดง Badge เล็กๆ กำกับ (ตัวเลือกเสริม)
             if (isAuto) {
               const autoBadge = document.createElement("span");
               autoBadge.textContent = "Auto";
@@ -310,19 +320,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             delBtn.addEventListener("click", (e) => {
               e.stopPropagation();
 
-              // ดึงข้อมูลเพื่อลบ และจัดการเพิ่มเข้า disabled_auto_selectors หากเป็นรายการ Auto
               chrome.storage.local.get(
                 [hostname, "disabled_auto_selectors"],
                 (currentRes) => {
-                  let currentItems = cleanItemsData(currentRes[hostname] || []);
+                  let currentItems = currentRes[hostname] || [];
                   let disabledSelectors =
                     currentRes.disabled_auto_selectors || [];
 
                   const targetItem = currentItems[originalIndex];
 
-                  if (targetItem && targetItem.isAuto) {
-                    if (!disabledSelectors.includes(targetItem.selector)) {
-                      disabledSelectors.push(targetItem.selector);
+                  if (
+                    targetItem &&
+                    (typeof targetItem === "object" ? targetItem.isAuto : false)
+                  ) {
+                    let targetSelector =
+                      typeof targetItem === "string"
+                        ? targetItem
+                        : targetItem.selector;
+                    if (
+                      targetSelector &&
+                      !disabledSelectors.includes(targetSelector)
+                    ) {
+                      disabledSelectors.push(targetSelector);
                     }
                   }
 
@@ -358,8 +377,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             li.appendChild(textContainer);
             li.appendChild(btnGroup);
-            listEl.appendChild(li);
+            fragment.appendChild(li);
           });
+          listEl.appendChild(fragment);
         }
       }
     });
@@ -414,10 +434,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     chrome.storage.local.get(
       [hostname, "disabled_auto_selectors"],
       (result) => {
-        let hiddenList = cleanItemsData(result[hostname] || []);
+        let hiddenList = result[hostname] || [];
         let disabledSelectors = result.disabled_auto_selectors || [];
 
-        // หากผู้ใช้เพิ่ม/แก้ไขเอง ให้เอาออกจากรายการข้ามการ Auto (ถ้ามีค้างอยู่)
         disabledSelectors = disabledSelectors.filter((s) => s !== val);
 
         if (
@@ -428,21 +447,32 @@ document.addEventListener("DOMContentLoaded", async () => {
           hiddenList[editingIndex] = {
             selector: val,
             timestamp: Date.now(),
-            isAuto: false // เปลี่ยนสถานะเป็นผู้ใช้เลือกเอง
+            isAuto: false
           };
         } else {
-          const existingIndex = hiddenList.findIndex(
-            (item) => item.selector === val
-          );
+          const existingIndex = hiddenList.findIndex((item) => {
+            let sel = typeof item === "string" ? item : item?.selector || "";
+            return sel.trim() === val;
+          });
+
           if (existingIndex !== -1) {
-            hiddenList[existingIndex].timestamp = Date.now();
-            delete hiddenList[existingIndex].isAuto; // เปลี่ยนสถานะเป็นผู้ใช้เลือกเอง
+            hiddenList[existingIndex] = {
+              selector: val,
+              timestamp: Date.now(),
+              isAuto: false
+            };
           } else {
-            hiddenList.push({ selector: val, timestamp: Date.now() }); // ค่าเริ่มต้นไม่มี isAuto ถือว่าเป็นของผู้ใช้
+            hiddenList.push({
+              selector: val,
+              timestamp: Date.now(),
+              isAuto: false
+            });
           }
         }
 
-        let finalCleanList = cleanItemsData(hiddenList);
+        let finalCleanList = cleanItemsData(hiddenList).map(
+          ({ selector, timestamp, isAuto }) => ({ selector, timestamp, isAuto })
+        );
 
         chrome.storage.local.set(
           {
@@ -451,7 +481,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           },
           () => {
             resetEditingState();
-            triggerTabRefresh(); // สั่งอัปเดตหน้าเว็บทันทีหลังบันทึก
+            triggerTabRefresh();
           }
         );
       }
@@ -467,15 +497,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.key === "Enter") {
         handleSaveOrAdd();
       }
-    });
-  }
-
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      chrome.storage.local.remove([hostname], () => {
-        resetEditingState();
-        triggerTabRefresh(); // สั่งอัปเดตหน้าเว็บทันทีหลังรีเซ็ต
-      });
     });
   }
 });

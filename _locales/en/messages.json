@@ -109,13 +109,7 @@
   },
   "noItemsText": {
     "message": "No hidden items yet"
-  },
-  "resetBtnTooltip": {
-    "message": "Reset all for this site"
-  },
-  "resetBtn": {
-    "message": "🗑️ Reset all for this site"
-  },
+  },  
   "editBtnTooltip": {
     "message": "Edit this item"
   },

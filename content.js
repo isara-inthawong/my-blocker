@@ -31,7 +31,7 @@ function getCssSelector(el) {
 
 const hostname = window.location.hostname.toLowerCase();
 
-// ฟังก์ชันสำหรับตรวจจับและซ่อนโฆษณาอัตโนมัติ จะบันทึกลง Storage เมื่อเจอและซ่อน Element จริง ๆ เท่านั้น
+// ฟังก์ชันสำหรับตรวจจับและซ่อนโฆษณาอัตโนมัติ (ป้องกันการบันทึกซ้ำซ้อน)
 function autoDetectAndHideAds() {
   try {
     chrome.storage.local.get(
@@ -68,7 +68,6 @@ function autoDetectAndHideAds() {
             // ถ้า Selector นี้เคยถูกผู้ใช้กดลบออกจาก Auto ให้ข้ามการซ่อน
             if (disabledSelectors.includes(selector)) return;
 
-            // ตรวจสอบให้มั่นใจว่าพบ Element นี้อยู่จริงบนหน้าเว็บก่อนดำเนินการซ่อนและบันทึก
             const matchedElements =
               el.querySelectorAll(selector) ||
               document.querySelectorAll(selector);
@@ -78,11 +77,20 @@ function autoDetectAndHideAds() {
             el.setAttribute("data-element-blocker-hidden", "true");
             el.setAttribute("data-element-blocker-selector", selector);
 
-            // ตรวจสอบว่ามีอยู่ใน hiddenList หรือยัง (ถ้ายัง ให้เพิ่มเพื่อให้ไปโชว์ในหน้า UI เฉพาะตอนที่เจอจริง ๆ)
-            const exists = hiddenList.some(
-              (item) =>
-                (typeof item === "object" ? item.selector : item) === selector
-            );
+            // ป้องกันการบันทึกซ้ำ: เช็กทั้งแบบตรงกันเป๊ะ และเช็กโครงสร้างหลัก (ตัด :nth-of-type ออกเพื่อเทียบเคียง)
+            const baseSelector = selector.split(":nth-of-type")[0];
+            const exists = hiddenList.some((item) => {
+              const itemSel = typeof item === "object" ? item.selector : item;
+              if (itemSel === selector) return true;
+              // ป้องกันไม่ให้บันทึกซ้ำถ้าโครงสร้างหลักเหมือนกันและเป็น auto เหมือนกัน
+              if (
+                item.isAuto &&
+                itemSel.split(":nth-of-type")[0] === baseSelector
+              ) {
+                return true;
+              }
+              return false;
+            });
 
             if (!exists) {
               hiddenList.push({
@@ -117,30 +125,44 @@ function applySavedHiddenElements() {
       const activeSelectors = new Set();
       let storageUpdated = false;
 
-      // 1. นำ Selector ที่เคยบันทึกไว้แล้วใน Storage มาใส่ชุด activeSelectors ก่อน
+      // 1. นำ Selector ที่เคยบันทึกไว้มาคัดกรองตามสถานะ Auto
       hiddenList.forEach((item) => {
         const selector =
           item && typeof item === "object" ? item.selector : item;
+        const isAutoItem =
+          item && typeof item === "object" ? item.isAuto : false;
+
         if (selector && typeof selector === "string") {
+          // ถ้าปิด Auto อยู่ และไอเทมนี้เป็น Auto ให้ข้ามการเพิ่มเข้า activeSelectors
+          if (isAutoDisabled && isAutoItem) {
+            return;
+          }
           activeSelectors.add(selector);
         }
       });
 
-      // 2. ตรวจสอบกฎจาก DEFAULT_AUTO_PICK_RULES (ซ่อนจริง แต่จะบันทึกเมื่อเจอตัวตนบนเว็บเท่านั้น)
+      // 2. ตรวจสอบกฎจาก DEFAULT_AUTO_PICK_RULES (จะทำงานก็ต่อเมื่อไม่ได้ปิด Auto เท่านั้น)
       if (!isAutoDisabled && typeof DEFAULT_AUTO_PICK_RULES !== "undefined") {
         DEFAULT_AUTO_PICK_RULES.forEach((rule) => {
           if (rule && typeof rule === "string") {
             try {
-              // เช็คว่ามี Element นี้อยู่จริงบนหน้าเว็บหรือไม่
               const matchedElements = document.querySelectorAll(rule);
               if (matchedElements.length > 0) {
                 activeSelectors.add(rule);
 
-                // เช็คว่าเคยบันทึกลง hiddenList หรือยัง ถ้ายังให้เพิ่มและบันทึกเฉพาะตอนเจอจริง
-                const exists = hiddenList.some(
-                  (item) =>
-                    (typeof item === "object" ? item.selector : item) === rule
-                );
+                const baseRule = rule.split(":nth-of-type")[0];
+                const exists = hiddenList.some((item) => {
+                  const itemSel =
+                    typeof item === "object" ? item.selector : item;
+                  if (itemSel === rule) return true;
+                  if (
+                    item.isAuto &&
+                    itemSel.split(":nth-of-type")[0] === baseRule
+                  ) {
+                    return true;
+                  }
+                  return false;
+                });
 
                 if (!exists) {
                   hiddenList.push({
@@ -160,6 +182,7 @@ function applySavedHiddenElements() {
         '[data-element-blocker-hidden="true"]'
       );
 
+      // คืนค่าแสดงผลให้กับ Element ที่ไม่ได้อยู่ใน activeSelectors แล้ว (เช่น โดนกรองออกเพราะปิด Auto)
       previouslyHiddenElements.forEach((el) => {
         const originalSelector = el.getAttribute(
           "data-element-blocker-selector"
@@ -178,7 +201,7 @@ function applySavedHiddenElements() {
         }
       });
 
-      // ซ่อนตาม Selector ทั้งหมดที่ใช้งานอยู่
+      // ซ่อนตาม Selector ทั้งหมดที่ใช้งานอยู่จริงในปัจจุบัน
       activeSelectors.forEach((selector) => {
         try {
           document.querySelectorAll(selector).forEach((el) => {
@@ -189,11 +212,11 @@ function applySavedHiddenElements() {
         } catch (e) {}
       });
 
-      // บันทึกเฉพาะตอนที่มีการพบกฎใหม่บนหน้าเว็บจริง ๆ เท่านั้น
       if (storageUpdated) {
         chrome.storage.local.set({ [hostname]: hiddenList });
       }
 
+      // ฟังก์ชันสแกนหาโฆษณาอัตโนมัติรอบตัว จะทำงานต่อเมื่อเปิด Auto ไว้เท่านั้น
       if (!isAutoDisabled) {
         autoDetectAndHideAds();
       }
