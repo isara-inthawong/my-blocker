@@ -17,8 +17,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   let allSavedItems = {};
   let currentPage = 1;
   const itemsPerPage = 5;
-
   let currentEditing = null;
+
+  const systemKeys = [
+    "preferred_lang",
+    "disabled_auto_hosts",
+    "disabled_auto_selectors"
+  ];
 
   // ดักจับปุ่ม ESC เพื่อปิด Modal
   document.addEventListener("keydown", (e) => {
@@ -76,7 +81,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!uniqueMap.has(sel)) {
           uniqueMap.set(sel, { selector: sel, timestamp: timestamp });
         } else {
-          // เก็บตัวที่มี timestamp ล่าสุดกว่า
           if (timestamp > uniqueMap.get(sel).timestamp) {
             uniqueMap.set(sel, { selector: sel, timestamp: timestamp });
           }
@@ -116,7 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const editBtnText = await safeGetMsg("editBtn", "Edit");
     const websitePrefixText = await safeGetMsg("websitePrefix", "🌐 Website:");
 
-    let keys = Object.keys(items).filter((k) => k !== "preferred_lang");
+    let keys = Object.keys(items).filter((k) => !systemKeys.includes(k));
 
     keys.sort((a, b) => {
       let selectorsA = cleanItemsData(items[a]);
@@ -364,6 +368,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let filteredItems = {};
     Object.keys(allSavedItems).forEach((hostname) => {
+      if (systemKeys.includes(hostname)) return;
+
       if (hostname.toLowerCase().includes(query)) {
         filteredItems[hostname] = allSavedItems[hostname];
       } else {
@@ -393,7 +399,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     chrome.storage.local.get(null, (items) => {
       try {
-        allSavedItems = items || {};
+        let cleanItems = {};
+        if (items) {
+          Object.keys(items).forEach((k) => {
+            if (!systemKeys.includes(k)) {
+              cleanItems[k] = items[k];
+            }
+          });
+        }
+        allSavedItems = cleanItems;
         filterAndRender();
       } catch (err) {
         console.error("Render error:", err);
@@ -411,7 +425,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadAllData();
   }
 
-  // ฟังก์ชันป้องกัน XSS เบื้องต้นสำหรับการแสดงผล HTML Tag
   function escapeHtml(text) {
     return text
       .replace(/&/g, "&amp;")
@@ -477,14 +490,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      // ส่งคำขอแบบรวมข้อมูล elements และ attributes มาพร้อมกันในครั้งเดียวเพื่อความเสถียร
       chrome.tabs.sendMessage(
         targetTab.id,
         { action: "previewSelectorWithAttributes", selector: selector },
         async (response) => {
-          // Fallback เผื่อ content.js ฝั่งหน้าเว็บยังไม่ได้อัปเดต action ใหม่ ให้เรียกแบบเก่าแยก 2 รอบ
           if (chrome.runtime.lastError || !response || !response.elements) {
-            fallbackPreview(targetTab.id, selector);
             return;
           }
 
@@ -530,7 +540,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div>${htmlList}</div>
           `;
 
-          // ผูก Event ให้ปุ่ม "ยกเว้น" ทุกปุ่มทันที
           const excludeButtons =
             previewBox.querySelectorAll(".exclude-item-btn");
           excludeButtons.forEach((btn) => {
@@ -541,7 +550,6 @@ document.addEventListener("DOMContentLoaded", async () => {
               e.stopPropagation();
 
               let targetAttr = elementAttrs[idx];
-
               if (!targetAttr && response.elements[idx]) {
                 const tempDiv = document.createElement("div");
                 tempDiv.innerHTML = response.elements[idx];
@@ -599,24 +607,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // ฟังก์ชันสำรองกรณี Content Script ยังเป็นเวอร์ชันเก่า
-  function fallbackPreview(tabId, selector) {
-    chrome.tabs.sendMessage(
-      tabId,
-      { action: "previewSelector", selector: selector },
-      (response) => {
-        if (
-          chrome.runtime.lastError ||
-          !response ||
-          !response.elements ||
-          response.elements.length === 0
-        )
-          return;
-        // เรนเดอร์แบบพื้นฐานและแกะจาก HTML string ตรงๆ
-      }
-    );
-  }
-
   if (editInput && previewBox) {
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
@@ -660,11 +650,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // ป้องกัน Modal ปิดเวลากดลากขยาย textarea แล้วเผลอปล่อยเมาส์ออกนอกกรอบ
   let isMouseDownInsideModal = false;
   if (editModal) {
     const modalBox = editModal.querySelector(".modal");
-
     if (modalBox) {
       modalBox.addEventListener("mousedown", () => {
         isMouseDownInsideModal = true;

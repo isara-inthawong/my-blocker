@@ -149,7 +149,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         let sel = typeof item === "string" ? item : item.selector || "";
         return {
           selector: sel.trim(),
-          timestamp: item.timestamp || Date.now()
+          timestamp: item.timestamp || Date.now(),
+          isAuto: item.isAuto || false // รองรับสถานะบอกว่าเป็น Auto
         };
       })
       .filter((item) => item.selector !== "");
@@ -211,6 +212,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           itemsWithIndex.forEach((itemObj, displayIndex) => {
             const sel = itemObj.selector;
+            const isAuto = itemObj.isAuto;
             const originalIndex = itemObj.originalIndex;
 
             const li = document.createElement("li");
@@ -247,6 +249,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             textContainer.appendChild(badge);
             textContainer.appendChild(span);
+
+            // ถ้าเป็นรายการที่ระบบ Auto ทำการตรวจจับมา ให้แสดง Badge เล็กๆ กำกับ (ตัวเลือกเสริม)
+            if (isAuto) {
+              const autoBadge = document.createElement("span");
+              autoBadge.textContent = "Auto";
+              autoBadge.style.fontSize = "10px";
+              autoBadge.style.background = "#e8f0fe";
+              autoBadge.style.color = "#1a73e8";
+              autoBadge.style.padding = "1px 4px";
+              autoBadge.style.borderRadius = "3px";
+              autoBadge.style.flexShrink = "0";
+              textContainer.appendChild(autoBadge);
+            }
 
             const startEditing = async () => {
               customInput.value = sel;
@@ -294,22 +309,48 @@ document.addEventListener("DOMContentLoaded", async () => {
             delBtn.className = "icon-btn btn-del";
             delBtn.addEventListener("click", (e) => {
               e.stopPropagation();
-              chrome.storage.local.get([hostname], (currentRes) => {
-                let currentItems = cleanItemsData(currentRes[hostname] || []);
-                currentItems.splice(originalIndex, 1);
 
-                if (currentItems.length === 0) {
-                  chrome.storage.local.remove(hostname, () => {
-                    resetEditingState();
-                    triggerTabRefresh();
-                  });
-                } else {
-                  chrome.storage.local.set({ [hostname]: currentItems }, () => {
-                    resetEditingState();
-                    triggerTabRefresh();
-                  });
+              // ดึงข้อมูลเพื่อลบ และจัดการเพิ่มเข้า disabled_auto_selectors หากเป็นรายการ Auto
+              chrome.storage.local.get(
+                [hostname, "disabled_auto_selectors"],
+                (currentRes) => {
+                  let currentItems = cleanItemsData(currentRes[hostname] || []);
+                  let disabledSelectors =
+                    currentRes.disabled_auto_selectors || [];
+
+                  const targetItem = currentItems[originalIndex];
+
+                  if (targetItem && targetItem.isAuto) {
+                    if (!disabledSelectors.includes(targetItem.selector)) {
+                      disabledSelectors.push(targetItem.selector);
+                    }
+                  }
+
+                  currentItems.splice(originalIndex, 1);
+
+                  const saveData = {
+                    [hostname]: currentItems,
+                    disabled_auto_selectors: disabledSelectors
+                  };
+
+                  if (currentItems.length === 0) {
+                    chrome.storage.local.remove(hostname, () => {
+                      chrome.storage.local.set(
+                        { disabled_auto_selectors: disabledSelectors },
+                        () => {
+                          resetEditingState();
+                          triggerTabRefresh();
+                        }
+                      );
+                    });
+                  } else {
+                    chrome.storage.local.set(saveData, () => {
+                      resetEditingState();
+                      triggerTabRefresh();
+                    });
+                  }
                 }
-              });
+              );
             });
 
             btnGroup.appendChild(editBtn);
@@ -370,36 +411,51 @@ document.addEventListener("DOMContentLoaded", async () => {
     const val = customInput.value.trim();
     if (!val) return;
 
-    chrome.storage.local.get([hostname], (result) => {
-      let hiddenList = cleanItemsData(result[hostname] || []);
+    chrome.storage.local.get(
+      [hostname, "disabled_auto_selectors"],
+      (result) => {
+        let hiddenList = cleanItemsData(result[hostname] || []);
+        let disabledSelectors = result.disabled_auto_selectors || [];
 
-      if (
-        editingIndex !== null &&
-        editingIndex >= 0 &&
-        editingIndex < hiddenList.length
-      ) {
-        hiddenList[editingIndex] = {
-          selector: val,
-          timestamp: Date.now()
-        };
-      } else {
-        const existingIndex = hiddenList.findIndex(
-          (item) => item.selector === val
-        );
-        if (existingIndex !== -1) {
-          hiddenList[existingIndex].timestamp = Date.now();
+        // หากผู้ใช้เพิ่ม/แก้ไขเอง ให้เอาออกจากรายการข้ามการ Auto (ถ้ามีค้างอยู่)
+        disabledSelectors = disabledSelectors.filter((s) => s !== val);
+
+        if (
+          editingIndex !== null &&
+          editingIndex >= 0 &&
+          editingIndex < hiddenList.length
+        ) {
+          hiddenList[editingIndex] = {
+            selector: val,
+            timestamp: Date.now(),
+            isAuto: false // เปลี่ยนสถานะเป็นผู้ใช้เลือกเอง
+          };
         } else {
-          hiddenList.push({ selector: val, timestamp: Date.now() });
+          const existingIndex = hiddenList.findIndex(
+            (item) => item.selector === val
+          );
+          if (existingIndex !== -1) {
+            hiddenList[existingIndex].timestamp = Date.now();
+            delete hiddenList[existingIndex].isAuto; // เปลี่ยนสถานะเป็นผู้ใช้เลือกเอง
+          } else {
+            hiddenList.push({ selector: val, timestamp: Date.now() }); // ค่าเริ่มต้นไม่มี isAuto ถือว่าเป็นของผู้ใช้
+          }
         }
+
+        let finalCleanList = cleanItemsData(hiddenList);
+
+        chrome.storage.local.set(
+          {
+            [hostname]: finalCleanList,
+            disabled_auto_selectors: disabledSelectors
+          },
+          () => {
+            resetEditingState();
+            triggerTabRefresh(); // สั่งอัปเดตหน้าเว็บทันทีหลังบันทึก
+          }
+        );
       }
-
-      let finalCleanList = cleanItemsData(hiddenList);
-
-      chrome.storage.local.set({ [hostname]: finalCleanList }, () => {
-        resetEditingState();
-        triggerTabRefresh(); // สั่งอัปเดตหน้าเว็บทันทีหลังบันทึก
-      });
-    });
+    );
   };
 
   if (addCustomBtn) {

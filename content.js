@@ -31,40 +31,75 @@ function getCssSelector(el) {
 
 const hostname = window.location.hostname.toLowerCase();
 
-// ฟังก์ชันสำหรับตรวจจับและซ่อนโฆษณาอัตโนมัติจาก Keywords ที่มักพบบ่อย
+// ฟังก์ชันสำหรับตรวจจับและซ่อนโฆษณาอัตโนมัติ จะบันทึกลง Storage เมื่อเจอและซ่อน Element จริง ๆ เท่านั้น
 function autoDetectAndHideAds() {
   try {
-    // คำค้นหาเฉพาะข้อความที่ต้องการตรวจสอบ (Keywords)
-    const adKeywords =
-      typeof DEFAULT_AD_KEYWORDS !== "undefined"
-        ? DEFAULT_AD_KEYWORDS
-        : [
-            "สนับสนุนโดย",
-            "sponsored",
-            "advertisement",
-            "ad-banner",
-            "adsbygoogle"
-          ];
+    chrome.storage.local.get(
+      [hostname, "disabled_auto_selectors"],
+      (result) => {
+        if (chrome.runtime.lastError) return;
 
-    // ค้นหา Element ต่างๆ ที่มีข้อความเข้าข่าย
-    document.querySelectorAll("div, section, aside").forEach((el) => {
-      const text = el.innerText ? el.innerText.trim().toLowerCase() : "";
+        const hiddenList = result[hostname] || [];
+        const disabledSelectors = result.disabled_auto_selectors || [];
 
-      const hasAdKeyword =
-        text.length < 50 &&
-        adKeywords.some((keyword) => text.includes(keyword));
+        const adKeywords =
+          typeof DEFAULT_AD_KEYWORDS !== "undefined"
+            ? DEFAULT_AD_KEYWORDS
+            : [
+                "สนับสนุนโดย",
+                "sponsored",
+                "advertisement",
+                "ad-banner",
+                "adsbygoogle"
+              ];
 
-      if (hasAdKeyword) {
-        if (
-          el.childElementCount < 10 &&
-          !el.getAttribute("data-element-blocker-hidden")
-        ) {
-          el.style.setProperty("display", "none", "important");
-          el.setAttribute("data-element-blocker-hidden", "true");
-          el.setAttribute("data-element-blocker-selector", "auto-detected-ad");
+        let storageUpdated = false;
+
+        document.querySelectorAll("div, section, aside").forEach((el) => {
+          const text = el.innerText ? el.innerText.trim().toLowerCase() : "";
+          const hasAdKeyword =
+            text.length < 50 &&
+            adKeywords.some((keyword) => text.includes(keyword));
+
+          if (hasAdKeyword && el.childElementCount < 10) {
+            const selector = getCssSelector(el);
+            if (!selector) return;
+
+            // ถ้า Selector นี้เคยถูกผู้ใช้กดลบออกจาก Auto ให้ข้ามการซ่อน
+            if (disabledSelectors.includes(selector)) return;
+
+            // ตรวจสอบให้มั่นใจว่าพบ Element นี้อยู่จริงบนหน้าเว็บก่อนดำเนินการซ่อนและบันทึก
+            const matchedElements =
+              el.querySelectorAll(selector) ||
+              document.querySelectorAll(selector);
+            if (matchedElements.length === 0 && !el.matches(selector)) return;
+
+            el.style.setProperty("display", "none", "important");
+            el.setAttribute("data-element-blocker-hidden", "true");
+            el.setAttribute("data-element-blocker-selector", selector);
+
+            // ตรวจสอบว่ามีอยู่ใน hiddenList หรือยัง (ถ้ายัง ให้เพิ่มเพื่อให้ไปโชว์ในหน้า UI เฉพาะตอนที่เจอจริง ๆ)
+            const exists = hiddenList.some(
+              (item) =>
+                (typeof item === "object" ? item.selector : item) === selector
+            );
+
+            if (!exists) {
+              hiddenList.push({
+                selector: selector,
+                timestamp: Date.now(),
+                isAuto: true // ระบุว่าเป็นรายการที่ระบบทำให้อัตโนมัติ
+              });
+              storageUpdated = true;
+            }
+          }
+        });
+
+        if (storageUpdated) {
+          chrome.storage.local.set({ [hostname]: hiddenList });
         }
       }
-    });
+    );
   } catch (e) {}
 }
 
@@ -80,16 +115,9 @@ function applySavedHiddenElements() {
       const hiddenList = result[hostname] || [];
 
       const activeSelectors = new Set();
+      let storageUpdated = false;
 
-      // ดึงกฎสำเร็จรูปจากไฟล์ defaults.js (รวมถึง Selector โฆษณาและเว็บพนันที่ย้ายไปก่อนหน้านี้)
-      if (!isAutoDisabled && typeof DEFAULT_AUTO_PICK_RULES !== "undefined") {
-        DEFAULT_AUTO_PICK_RULES.forEach((rule) => {
-          if (rule && typeof rule === "string") {
-            activeSelectors.add(rule);
-          }
-        });
-      }
-
+      // 1. นำ Selector ที่เคยบันทึกไว้แล้วใน Storage มาใส่ชุด activeSelectors ก่อน
       hiddenList.forEach((item) => {
         const selector =
           item && typeof item === "object" ? item.selector : item;
@@ -97,6 +125,36 @@ function applySavedHiddenElements() {
           activeSelectors.add(selector);
         }
       });
+
+      // 2. ตรวจสอบกฎจาก DEFAULT_AUTO_PICK_RULES (ซ่อนจริง แต่จะบันทึกเมื่อเจอตัวตนบนเว็บเท่านั้น)
+      if (!isAutoDisabled && typeof DEFAULT_AUTO_PICK_RULES !== "undefined") {
+        DEFAULT_AUTO_PICK_RULES.forEach((rule) => {
+          if (rule && typeof rule === "string") {
+            try {
+              // เช็คว่ามี Element นี้อยู่จริงบนหน้าเว็บหรือไม่
+              const matchedElements = document.querySelectorAll(rule);
+              if (matchedElements.length > 0) {
+                activeSelectors.add(rule);
+
+                // เช็คว่าเคยบันทึกลง hiddenList หรือยัง ถ้ายังให้เพิ่มและบันทึกเฉพาะตอนเจอจริง
+                const exists = hiddenList.some(
+                  (item) =>
+                    (typeof item === "object" ? item.selector : item) === rule
+                );
+
+                if (!exists) {
+                  hiddenList.push({
+                    selector: rule,
+                    timestamp: Date.now(),
+                    isAuto: true
+                  });
+                  storageUpdated = true;
+                }
+              }
+            } catch (e) {}
+          }
+        });
+      }
 
       const previouslyHiddenElements = document.querySelectorAll(
         '[data-element-blocker-hidden="true"]'
@@ -120,7 +178,7 @@ function applySavedHiddenElements() {
         }
       });
 
-      // ซ่อนตาม Selector ที่บันทึกไว้
+      // ซ่อนตาม Selector ทั้งหมดที่ใช้งานอยู่
       activeSelectors.forEach((selector) => {
         try {
           document.querySelectorAll(selector).forEach((el) => {
@@ -131,7 +189,11 @@ function applySavedHiddenElements() {
         } catch (e) {}
       });
 
-      // ถ้าระบบ Auto Pick เปิดอยู่ ให้รันระบบตรวจจับโฆษณาอัจฉริยะเพิ่มด้วย
+      // บันทึกเฉพาะตอนที่มีการพบกฎใหม่บนหน้าเว็บจริง ๆ เท่านั้น
+      if (storageUpdated) {
+        chrome.storage.local.set({ [hostname]: hiddenList });
+      }
+
       if (!isAutoDisabled) {
         autoDetectAndHideAds();
       }
@@ -236,26 +298,41 @@ document.addEventListener(
 
     if (selector && chrome.runtime?.id) {
       try {
-        chrome.storage.local.get([hostname], (result) => {
-          if (chrome.runtime.lastError) return;
-          let hiddenList = result[hostname] || [];
+        chrome.storage.local.get(
+          [hostname, "disabled_auto_selectors"],
+          (result) => {
+            if (chrome.runtime.lastError) return;
+            let hiddenList = result[hostname] || [];
+            let disabledSelectors = result.disabled_auto_selectors || [];
 
-          const existingIndex = hiddenList.findIndex(
-            (item) => item.selector === selector
-          );
+            // ถ้าผู้ใช้กดเลือกเอง ให้ปลดออกจากรายชื่อข้ามการ Auto (ถ้ามี)
+            disabledSelectors = disabledSelectors.filter((s) => s !== selector);
 
-          if (existingIndex !== -1) {
-            hiddenList[existingIndex].timestamp = Date.now();
-          } else {
-            hiddenList.push({ selector: selector, timestamp: Date.now() });
-          }
+            const existingIndex = hiddenList.findIndex(
+              (item) =>
+                (typeof item === "object" ? item.selector : item) === selector
+            );
 
-          chrome.storage.local.set({ [hostname]: hiddenList }, () => {
-            if (!chrome.runtime.lastError) {
-              applySavedHiddenElements();
+            if (existingIndex !== -1) {
+              hiddenList[existingIndex].timestamp = Date.now();
+              delete hiddenList[existingIndex].isAuto; // เปลี่ยนสถานะเป็นเลือกเอง (User-picked)
+            } else {
+              hiddenList.push({ selector: selector, timestamp: Date.now() });
             }
-          });
-        });
+
+            chrome.storage.local.set(
+              {
+                [hostname]: hiddenList,
+                disabled_auto_selectors: disabledSelectors
+              },
+              () => {
+                if (!chrome.runtime.lastError) {
+                  applySavedHiddenElements();
+                }
+              }
+            );
+          }
+        );
       } catch (e) {}
     }
   },
@@ -335,7 +412,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (changes.preferred_lang && isPicking) {
       createBanner();
     }
-    if (changes.disabled_auto_hosts || changes[hostname]) {
+    if (
+      changes.disabled_auto_hosts ||
+      changes[hostname] ||
+      changes.disabled_auto_selectors
+    ) {
       applySavedHiddenElements();
     }
   }
