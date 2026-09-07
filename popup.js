@@ -368,6 +368,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                       DEFAULT_AUTO_PICK_RULES.includes(targetSelector);
                   }
 
+                  // console.log("Delete Debug:", {
+                  //   targetSelector,
+                  //   isAutoVal,
+                  //   matchesDefaultRule,
+                  //   originalIndex,
+                  //   DEFAULT_AUTO_PICK_RULES_Defined:
+                  //     typeof DEFAULT_AUTO_PICK_RULES !== "undefined"
+                  // });
                   if ((isAutoVal || matchesDefaultRule) && targetSelector) {
                     if (!disabledSelectors.includes(targetSelector)) {
                       disabledSelectors.push(targetSelector);
